@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luxury Travel Architect | Intelligence Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            background: #f8fafc;
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            color: #0f172a;
+        }
+        
+        /* Glassmorphism Styles */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            @apply border border-white shadow-xl rounded-[2.5rem];
+        }
+
+        /* Loading Spinner */
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #10b981;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Input Styling */
+        .input-premium {
+            @apply w-full px-5 py-4 bg-white/80 border border-slate-200 rounded-2xl text-sm transition-all duration-300;
+            @apply focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none;
+        }
+
+        .label-premium {
+            @apply text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block ml-1;
+        }
+
+        .inr-symbol::before { content: "₹"; @apply mr-1 text-slate-400 font-light; }
+
+        @media print { .no-print { display: none !important; } }
+    </style>
+</head>
+<body class="p-4 md:p-8 lg:p-12">
+
+    <div id="status-bar" class="fixed top-6 left-1/2 -translate-x-1/2 z-50 no-print">
+        <div class="bg-slate-900 text-white px-6 py-2.5 rounded-full shadow-2xl flex items-center gap-3 text-xs font-bold tracking-wider uppercase">
+            <div id="status-icon" class="loader"></div>
+            <span id="status-text">Establishing Secure Link...</span>
+        </div>
+    </div>
+
+    <div class="max-w-[1600px] mx-auto space-y-8">
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 mb-12">
+            <div>
+                <div class="flex items-center gap-4 mb-2">
+                    <span class="px-4 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black rounded-full tracking-widest uppercase">Internal Use Only</span>
+                </div>
+                <h1 class="text-5xl font-black tracking-tighter text-slate-900 lg:text-6xl">
+                    ANNEXURE <span class="text-emerald-500">A</span>
+                </h1>
+                <p class="text-slate-400 font-medium text-lg mt-2">Financial Breakdown & Global Itinerary Proposal</p>
+            </div>
+            <div class="flex gap-4 no-print">
+                <button onclick="window.print()" class="bg-white text-slate-900 border border-slate-200 px-8 py-4 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                    Print Document
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+            
+            <aside class="xl:col-span-4 space-y-6 no-print">
+                <div class="glass-panel p-8">
+                    <div class="flex items-center gap-4 mb-8">
+                        <div class="h-12 w-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-white text-xl">🏨</div>
+                        <h2 class="text-2xl font-black tracking-tight">Accommodations</h2>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="md:col-span-2">
+                                <label class="label-premium">1. Target Destination</label>
+                                <input type="text" list="cityList" id="cityInput" class="input-premium" oninput="handleCityChange()" placeholder="Enter City...">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="label-premium">2. Select Property</label>
+                                <input type="text" list="hotelList" id="hotelInput" class="input-premium" oninput="handleHotelChange()" placeholder="Choose Hotel...">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="label-premium">3. Room Category</label>
+                                <select id="roomSelect" class="input-premium bg-white"></select>
+                            </div>
+                            <div>
+                                <label class="label-premium">Check-In</label>
+                                <input type="date" id="hIn" class="input-premium">
+                            </div>
+                            <div>
+                                <label class="label-premium">Check-Out</label>
+                                <input type="date" id="hOut" class="input-premium">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="label-premium">Inclusions</label>
+                                <input type="text" id="hIncl" class="input-premium" placeholder="e.g. Breakfast, Transfers">
+                            </div>
+                        </div>
+                        <button id="addHotelBtn" onclick="addEntry('hotel')" class="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-100">Add Property to Table</button>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-8">
+                    <div class="flex items-center gap-4 mb-8">
+                        <div class="h-12 w-12 bg-blue-500 rounded-2xl flex items-center justify-center text-white text-xl">🎡</div>
+                        <h2 class="text-2xl font-black tracking-tight">Experiences</h2>
+                    </div>
+                    <div class="space-y-6">
+                        <div>
+                            <label class="label-premium">Curated Activity</label>
+                            <input type="text" list="sightList" id="sightInput" class="input-premium" placeholder="Select Local Experience...">
+                        </div>
+                        <div>
+                            <label class="label-premium">Local Vendor / Operator</label>
+                            <input type="text" id="sVendor" class="input-premium" placeholder="Vendor Name...">
+                        </div>
+                        <button id="addSightBtn" onclick="addEntry('sight')" class="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl shadow-blue-100">Add Experience</button>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="xl:col-span-8 space-y-8">
+                <div class="glass-panel overflow-hidden">
+                    <div class="p-6 bg-white border-b border-slate-100 flex justify-between items-center">
+                        <span class="text-[10px] font-black tracking-widest text-emerald-600 uppercase">Section 01 // Lodging</span>
+                        <div class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50">
+                                <tr>
+                                    <th class="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest pl-8">Location</th>
+                                    <th class="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Stay Duration</th>
+                                    <th class="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Details</th>
+                                    <th class="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right pr-8">Cost (Net)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="hotelBody" class="divide-y divide-slate-50"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="glass-panel overflow-hidden">
+                    <div class="p-6 bg-white border-b border-slate-100 flex justify-between items-center">
+                        <span class="text-[10px] font-black tracking-widest text-blue-600 uppercase">Section 02 // Activities</span>
+                        <div class="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50">
+                                <tr>
+                                    <th class="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest pl-8">Location</th>
+                                    <th class="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Description</th>
+                                    <th class="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right pr-8">Cost (Net)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sightBody" class="divide-y divide-slate-50"></tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="p-8 lg:p-12 bg-slate-900 text-white mt-4 relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
+                        <div class="max-w-md ml-auto space-y-4 relative z-10">
+                            <div class="flex justify-between text-slate-400 text-xs font-bold uppercase tracking-widest">
+                                <span>Net Subtotal</span>
+                                <span class="inr-symbol text-white" id="totalNet">0</span>
+                            </div>
+                            <div class="flex justify-between text-slate-400 text-xs font-bold uppercase tracking-widest">
+                                <span>Architect Markup (15%)</span>
+                                <span class="inr-symbol text-white" id="totalMark">0</span>
+                            </div>
+                            <div class="flex justify-between text-slate-500 text-[10px] font-bold uppercase tracking-tighter">
+                                <span>Govt. Taxes (18% on Markup)</span>
+                                <span class="inr-symbol" id="totalGst">0</span>
+                            </div>
+                            <div class="h-px bg-slate-800 my-8"></div>
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <p class="text-[10px] text-emerald-400 font-black uppercase tracking-[0.3em] mb-1">Final Investment</p>
+                                    <h4 class="text-4xl font-black tracking-tighter uppercase">Grand Total</h4>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-5xl font-black text-white tracking-tighter inr-symbol" id="totalGrand">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <datalist id="cityList"></datalist>
+    <datalist id="hotelList"></datalist>
+    <datalist id="sightList"></datalist>
+
+<script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbzYbmpf1dOUVJ2JAxr5UVeFCQL6sT6AaHP9N6gguF0Z0qaotsFJEzHa5jQnO39wsKMRnA/exec";
+    let masterData = { hotels: [], sights: [] };
+    let netTotal = 0;
+
+    async function init() {
+        const statusIcon = document.getElementById('status-icon');
+        const statusText = document.getElementById('status-text');
+
+        try {
+            const res = await fetch(API_URL);
+            masterData = await res.json();
+            
+            // Connection Success State
+            statusIcon.classList.remove('loader');
+            statusIcon.innerHTML = '⚡';
+            statusText.innerText = 'Connected to Cloud Database';
+            setTimeout(() => document.getElementById('status-bar').style.opacity = '0.3', 3000);
+
+            const cities = [...new Set(masterData.hotels.map(h => h.city))];
+            document.getElementById('cityList').innerHTML = cities.map(c => `<option value="${c}">`).join('');
+        } catch (e) { 
+            statusIcon.innerHTML = '❌';
+            statusText.innerText = 'Connection Failed';
+            alert("Security Error: Failed to fetch secure data.");
+        }
+    }
+
+    function handleCityChange() {
+        const input = document.getElementById('cityInput').value.trim().toLowerCase();
+        if (!input) return;
+
+        const hotels = [...new Set(masterData.hotels.filter(h => h.city.toLowerCase() === input).map(h => h.name))];
+        document.getElementById('hotelList').innerHTML = hotels.map(h => `<option value="${h}">`).join('');
+
+        const sights = masterData.sights.filter(s => s.city.toLowerCase().includes(input));
+        document.getElementById('sightList').innerHTML = sights.map(s => `<option value="${s.info}">${s.info} (₹${s.price})</option>`).join('');
+    }
+
+    function handleHotelChange() {
+        const city = document.getElementById('cityInput').value.trim().toLowerCase();
+        const hotel = document.getElementById('hotelInput').value.trim().toLowerCase();
+        const rooms = masterData.hotels.filter(h => h.city.toLowerCase() === city && h.name.toLowerCase() === hotel);
+        document.getElementById('roomSelect').innerHTML = rooms.map(r => `<option value="${r.cost}">${r.type} - ₹${r.cost}</option>`).join('');
+    }
+
+    function addEntry(type) {
+        const city = document.getElementById('cityInput').value.trim();
+        if(!city) return alert("System requires a City to proceed.");
+
+        if(type === 'hotel') {
+            const sel = document.getElementById('roomSelect');
+            if(!sel.value) return;
+            const cost = parseFloat(sel.value);
+            const hotelName = document.getElementById('hotelInput').value;
+            const roomName = sel.options[sel.selectedIndex].text.split(' - ')[0];
+            const dates = `${document.getElementById('hIn').value} ➔ ${document.getElementById('hOut').value}`;
+            
+            const row = `<tr class="hover:bg-slate-50 transition-all group">
+                <td class="p-6 pl-8 font-black text-slate-900">${city}</td>
+                <td class="p-6 text-slate-500 font-medium">${dates}</td>
+                <td class="p-6">
+                    <div class="font-bold text-slate-800">${hotelName}</div>
+                    <div class="text-[10px] text-emerald-600 font-black uppercase tracking-widest mt-1">${roomName}</div>
+                    <div class="text-[10px] text-slate-400 italic mt-1">${document.getElementById('hIncl').value}</div>
+                </td>
+                <td class="p-6 text-right pr-8 font-black text-slate-900 inr-symbol">${cost.toLocaleString('en-IN')}</td>
+            </tr>`;
+            document.getElementById('hotelBody').insertAdjacentHTML('beforeend', row);
+            netTotal += cost;
+            animateBtn('addHotelBtn');
+        } else {
+            const info = document.getElementById('sightInput').value.trim();
+            const sight = masterData.sights.find(s => s.info === info);
+            if(!sight) return;
+            
+            const row = `<tr class="hover:bg-slate-50 transition-all">
+                <td class="p-6 pl-8 font-black text-slate-900">${city}</td>
+                <td class="p-6">
+                    <div class="font-bold text-slate-800">${sight.info}</div>
+                    <div class="text-[10px] text-blue-500 font-black uppercase tracking-widest mt-1">${document.getElementById('sVendor').value || 'Private Vendor'}</div>
+                </td>
+                <td class="p-6 text-right pr-8 font-black text-slate-900 inr-symbol">${sight.price.toLocaleString('en-IN')}</td>
+            </tr>`;
+            document.getElementById('sightBody').insertAdjacentHTML('beforeend', row);
+            netTotal += sight.price;
+            animateBtn('addSightBtn');
+        }
+        updateSummary();
+    }
+
+    function animateBtn(btnId) {
+        const btn = document.getElementById(btnId);
+        const originalText = btn.innerText;
+        btn.innerText = "✓ Item Added Successfully";
+        btn.style.backgroundColor = "#059669";
+        setTimeout(() => {
+            btn.innerText = originalText;
+            btn.style.backgroundColor = "";
+        }, 1500);
+    }
+
+    function updateSummary() {
+        const markup = netTotal * 0.15;
+        const gst = markup * 0.18;
+        const grand = netTotal + markup + gst;
+
+        document.getElementById('totalNet').innerText = netTotal.toLocaleString('en-IN');
+        document.getElementById('totalMark').innerText = markup.toLocaleString('en-IN', {maximumFractionDigits: 0});
+        document.getElementById('totalGst').innerText = Math.round(gst).toLocaleString('en-IN');
+        document.getElementById('totalGrand').innerText = Math.round(grand).toLocaleString('en-IN');
+    }
+
+    init();
+</script>
+</body>
+</html>

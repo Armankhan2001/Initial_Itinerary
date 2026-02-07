@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luxury AI Optimizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { background: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); @apply border border-white shadow-xl rounded-[2rem]; }
+        .input-p { @apply w-full px-5 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 transition-all; }
+        .chip { @apply bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2; }
+    </style>
+</head>
+<body class="p-4 md:p-10">
+
+    <div class="max-w-6xl mx-auto space-y-10">
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-4xl font-black tracking-tighter text-slate-900">AI TRAVEL <span class="text-emerald-500">OPTIMIZER</span></h1>
+                <p class="text-slate-500">Define your route and budget; let AI handle the math.</p>
+            </div>
+            <div id="connection-status" class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Connecting...</div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <div class="glass p-8 space-y-6">
+                <h2 class="text-xl font-bold flex items-center gap-2"><span>📍</span> 1. Define Route</h2>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Add City & Nights</label>
+                    <div class="flex gap-2">
+                        <input type="text" list="cityList" id="cityInput" class="input-p" placeholder="City">
+                        <input type="number" id="nightInput" class="input-p w-24" placeholder="Nights">
+                        <button onclick="addCityToRoute()" class="bg-slate-900 text-white px-4 rounded-xl hover:bg-emerald-600">+</button>
+                    </div>
+                </div>
+                <div id="routeList" class="flex flex-wrap gap-2 min-h-[40px] p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                    </div>
+            </div>
+
+            <div class="glass p-8 space-y-6">
+                <h2 class="text-xl font-bold flex items-center gap-2"><span>💰</span> 2. Set Budgets</h2>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Hotel Budget (INR)</label>
+                    <input type="number" id="hotelBudget" class="input-p mb-4" placeholder="e.g. 400000" value="400000">
+                    
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Activities Budget (INR)</label>
+                    <input type="number" id="sightBudget" class="input-p" placeholder="e.g. 100000" value="100000">
+                </div>
+                <button onclick="runOptimizer()" class="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:scale-[1.02] transition-all shadow-lg shadow-emerald-200">
+                    Run AI Optimization
+                </button>
+            </div>
+
+            <div class="glass p-8 bg-slate-900 text-white">
+                <h2 class="text-xl font-bold mb-6">Live Calculations</h2>
+                <div class="space-y-4">
+                    <div class="flex justify-between border-b border-slate-800 pb-2">
+                        <span class="text-slate-400 text-sm">Hotel Used:</span>
+                        <span id="resHotelUsed" class="font-bold">₹0</span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-800 pb-2">
+                        <span class="text-slate-400 text-sm">Activities Used:</span>
+                        <span id="resSightUsed" class="font-bold">₹0</span>
+                    </div>
+                    <div class="pt-4">
+                        <p class="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">Grand Total (Incl. 15% Markup + GST)</p>
+                        <h3 id="resGrandTotal" class="text-4xl font-black mt-1">₹0</h3>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="proposalSection" class="hidden space-y-6">
+            <h2 class="text-2xl font-black text-slate-900">Optimized Proposal</h2>
+            <div class="glass overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 border-b border-slate-100">
+                        <tr>
+                            <th class="p-6 text-xs font-bold uppercase text-slate-400">City</th>
+                            <th class="p-6 text-xs font-bold uppercase text-slate-400">AI Selected Hotel & Room</th>
+                            <th class="p-6 text-xs font-bold uppercase text-slate-400">Activities Included</th>
+                            <th class="p-6 text-xs font-bold uppercase text-slate-400 text-right">Total (Net)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="proposalBody" class="divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <datalist id="cityList"></datalist>
+
+<script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbzYbmpf1dOUVJ2JAxr5UVeFCQL6sT6AaHP9N6gguF0Z0qaotsFJEzHa5jQnO39wsKMRnA/exec";
+    let masterData = { hotels: [], sights: [] };
+    let selectedRoute = []; // Array of {city, nights}
+
+    async function init() {
+        try {
+            const res = await fetch(API_URL);
+            masterData = await res.json();
+            document.getElementById('connection-status').innerText = "Database Online";
+            const cities = [...new Set(masterData.hotels.map(h => h.city))];
+            document.getElementById('cityList').innerHTML = cities.map(c => `<option value="${c}">`).join('');
+        } catch (e) { alert("Connection Error"); }
+    }
+
+    function addCityToRoute() {
+        const city = document.getElementById('cityInput').value.trim();
+        const nights = parseInt(document.getElementById('nightInput').value);
+        if(!city || isNaN(nights)) return;
+
+        selectedRoute.push({ city, nights });
+        renderRoute();
+        document.getElementById('cityInput').value = "";
+        document.getElementById('nightInput').value = "";
+    }
+
+    function renderRoute() {
+        document.getElementById('routeList').innerHTML = selectedRoute.map((item, index) => `
+            <div class="chip">
+                ${item.city} (${item.nights}N)
+                <button onclick="selectedRoute.splice(${index},1); renderRoute();" class="hover:text-red-500">×</button>
+            </div>
+        `).join('');
+    }
+
+    function runOptimizer() {
+        const hBudget = parseFloat(document.getElementById('hotelBudget').value);
+        const sBudget = parseFloat(document.getElementById('sightBudget').value);
+        
+        if(selectedRoute.length === 0) return alert("Add some cities first!");
+
+        let finalPlan = [];
+        let totalHotelCost = 0;
+        let totalSightCost = 0;
+
+        selectedRoute.forEach(routeItem => {
+            // 1. Find Best Hotel for this city that fits budget proportionally
+            // Logic: Budget Per City = Total Budget / Number of Cities
+            const budgetPerCity = hBudget / selectedRoute.length;
+            
+            const availableHotels = masterData.hotels
+                .filter(h => h.city.toLowerCase() === routeItem.city.toLowerCase())
+                .map(h => ({...h, totalStay: h.cost * routeItem.nights}))
+                .filter(h => h.totalStay <= budgetPerCity * 1.2) // Allow 20% flexibility
+                .sort((a, b) => b.totalStay - a.totalStay); // Get the most expensive one that fits
+
+            const bestHotel = availableHotels[0] || {name: "No Hotel Found", type: "N/A", totalStay: 0};
+            
+            // 2. Find Sights for this city
+            const budgetPerSight = sBudget / selectedRoute.length;
+            const citySights = masterData.sights
+                .filter(s => s.city.toLowerCase().includes(routeItem.city.toLowerCase()))
+                .sort((a,b) => b.price - a.price);
+            
+            let selectedSights = [];
+            let currentSightTotal = 0;
+            citySights.forEach(s => {
+                if(currentSightTotal + s.price <= budgetPerSight) {
+                    selectedSights.push(s);
+                    currentSightTotal += s.price;
+                }
+            });
+
+            finalPlan.push({
+                city: routeItem.city,
+                nights: routeItem.nights,
+                hotel: bestHotel,
+                sights: selectedSights,
+                cityTotal: bestHotel.totalStay + currentSightTotal
+            });
+
+            totalHotelCost += bestHotel.totalStay;
+            totalSightCost += currentSightTotal;
+        });
+
+        renderProposal(finalPlan, totalHotelCost, totalSightCost);
+    }
+
+    function renderProposal(plan, hCost, sCost) {
+        const body = document.getElementById('proposalBody');
+        body.innerHTML = plan.map(item => `
+            <tr class="hover:bg-slate-50">
+                <td class="p-6 font-bold">${item.city} (${item.nights} Nights)</td>
+                <td class="p-6">
+                    <div class="font-bold">${item.hotel.name}</div>
+                    <div class="text-xs text-emerald-600 font-bold uppercase">${item.hotel.type} @ ₹${item.hotel.cost}/night</div>
+                </td>
+                <td class="p-6">
+                    ${item.sights.map(s => `<div class="text-xs text-slate-500">• ${s.info} (₹${s.price})</div>`).join('') || 'None selected'}
+                </td>
+                <td class="p-6 text-right font-black">₹${item.cityTotal.toLocaleString('en-IN')}</td>
+            </tr>
+        `).join('');
+
+        document.getElementById('resHotelUsed').innerText = `₹${hCost.toLocaleString('en-IN')}`;
+        document.getElementById('resSightUsed').innerText = `₹${sCost.toLocaleString('en-IN')}`;
+        
+        const net = hCost + sCost;
+        const markup = net * 0.15;
+        const gst = markup * 0.18;
+        document.getElementById('resGrandTotal').innerText = `₹${Math.round(net + markup + gst).toLocaleString('en-IN')}`;
+        
+        document.getElementById('proposalSection').classList.remove('hidden');
+    }
+
+    init();
+</script>
+</body>
+</html>
