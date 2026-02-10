@@ -3,108 +3,150 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luxury Architect | Intelligence Suite</title>
+    <title>Luxe Iter | Premium AI Itinerary Architect</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
-        body { background: #f1f5f9; font-family: 'Plus Jakarta Sans', sans-serif; color: #0f172a; }
-        .glass { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); @apply border border-white shadow-2xl rounded-[2.5rem]; }
-        .tab-btn { @apply px-8 py-4 font-bold text-sm tracking-widest uppercase transition-all border-b-4 border-transparent; }
-        .tab-btn.active { @apply border-emerald-500 text-emerald-600 bg-emerald-50/50; }
-        .input-premium { @apply w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all; }
-        .card-anim { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .card-anim:hover { transform: translateY(-5px); }
+        body { background: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; color: #0f172a; }
+        .glass { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.7); }
+        .card-shadow { box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.05), 0 8px 10px -6px rgb(0 0 0 / 0.05); }
+        .btn-primary { @apply bg-emerald-600 text-white font-bold py-3 px-6 rounded-xl hover:bg-emerald-700 transition-all active:scale-95 shadow-lg shadow-emerald-200; }
+        .btn-secondary { @apply bg-white border border-slate-200 text-slate-700 font-bold py-2 px-4 rounded-lg hover:bg-slate-50 transition-all text-xs; }
+        
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; padding: 0; margin: 0; }
+            .glass { border: none !important; box-shadow: none !important; background: white !important; }
+            .card-shadow { box-shadow: none !important; }
+            .print-break { page-break-inside: avoid; border-bottom: 1px solid #e2e8f0 !important; }
+            .bg-slate-900 { background-color: #0f172a !important; color: white !important; -webkit-print-color-adjust: exact; }
+            .text-emerald-600 { color: #059669 !important; }
+        }
     </style>
 </head>
-<body class="p-4 lg:p-12">
+<body class="p-4 md:p-8">
 
-    <div class="max-w-7xl mx-auto">
-        <header class="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
+    <div class="max-w-7xl mx-auto space-y-8">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-                <h1 class="text-4xl font-black tracking-tighter">TRAVEL <span class="text-emerald-500">INTELLIGENCE</span></h1>
-                <p class="text-slate-400 font-medium">Your Private Inventory & AI Optimization Suite</p>
+                <div class="flex items-center gap-2 mb-1 no-print">
+                    <span class="bg-emerald-500 w-3 h-3 rounded-full animate-pulse"></span>
+                    <span id="connection-status" class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Initializing Engine...</span>
+                </div>
+                <h1 class="text-4xl font-black tracking-tight">LUXE <span class="text-emerald-600">ITER</span></h1>
+                <p class="text-slate-500 font-medium">Global Itinerary Optimization Engine</p>
             </div>
-            <div id="status" class="bg-slate-900 text-white px-6 py-2 rounded-full text-[10px] font-bold tracking-widest uppercase">
-                System Online
+            <div class="flex gap-3 no-print">
+                <button onclick="window.print()" class="btn-primary flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                    Export PDF Proposal
+                </button>
             </div>
-        </header>
-
-        <div class="flex border-b border-slate-200 mb-8 no-print">
-            <button onclick="switchTab('planner')" id="tab-planner" class="tab-btn active">AI Optimizer</button>
-            <button onclick="switchTab('explorer')" id="tab-explorer" class="tab-btn">Activity Explorer</button>
         </div>
 
-        <div id="section-planner" class="space-y-8">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div class="lg:col-span-1 glass p-8 space-y-6">
-                    <h3 class="text-xl font-black italic text-emerald-600">01. Parameters</h3>
-                    
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div class="lg:col-span-4 space-y-6 no-print">
+                <div class="glass p-6 rounded-[2rem] card-shadow space-y-6">
+                    <h2 class="text-lg font-extrabold flex items-center gap-3">
+                        <span class="w-8 h-8 bg-slate-900 text-white rounded-lg flex items-center justify-center text-sm">01</span>
+                        Route Planning
+                    </h2>
                     <div class="space-y-4">
-                        <label class="block text-[10px] font-black uppercase text-slate-400">Route Map</label>
                         <div class="flex gap-2">
-                            <input type="text" list="cityList" id="cityInput" class="input-premium" placeholder="City">
-                            <input type="number" id="nightInput" class="input-premium w-24" placeholder="Nts">
-                            <button onclick="addCityToRoute()" class="bg-emerald-600 text-white px-6 rounded-2xl hover:bg-emerald-700 font-bold">+</button>
+                            <div class="flex-1">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">City</label>
+                                <input type="text" list="cityList" id="cityInput" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="e.g. London">
+                            </div>
+                            <div class="w-24">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Nights</label>
+                                <input type="number" id="nightInput" class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500" placeholder="3">
+                            </div>
                         </div>
-                        <div id="routeList" class="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-2xl min-h-[50px]"></div>
+                        <button onclick="addCityToRoute()" class="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all">+ Add Stop</button>
                     </div>
-
-                    <div class="space-y-4 pt-4 border-t">
-                        <label class="block text-[10px] font-black uppercase text-slate-400">Financial Constraints</label>
-                        <input type="number" id="hotelBudget" class="input-premium" placeholder="Hotel Budget (INR)" value="400000">
-                        <input type="number" id="sightBudget" class="input-premium" placeholder="Activity Budget (INR)" value="200000">
-                    </div>
-
-                    <button onclick="runOptimizer()" class="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-100">
-                        Calculate Best Fit
-                    </button>
+                    <div id="routeList" class="space-y-2"></div>
                 </div>
 
-                <div class="lg:col-span-2 glass overflow-hidden flex flex-col">
-                    <div class="p-8 border-b bg-white flex justify-between items-center">
-                        <h3 class="font-black uppercase tracking-widest text-sm">Optimized Proposal</h3>
-                        <div class="text-right">
-                            <p class="text-[10px] font-bold text-slate-400">ESTIMATED TOTAL</p>
-                            <p id="resGrandTotal" class="text-3xl font-black text-emerald-600">₹0</p>
+                <div class="glass p-6 rounded-[2rem] card-shadow space-y-6">
+                    <h2 class="text-lg font-extrabold flex items-center gap-3">
+                        <span class="w-8 h-8 bg-slate-900 text-white rounded-lg flex items-center justify-center text-sm">02</span>
+                        Budget & Margins
+                    </h2>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Hotel Cap (Net)</label>
+                                <input type="number" id="hotelBudget" class="w-full px-4 py-3 rounded-xl border border-slate-200" value="300000">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Sight Cap (Net)</label>
+                                <input type="number" id="sightBudget" class="w-full px-4 py-3 rounded-xl border border-slate-200" value="80000">
+                            </div>
                         </div>
-                    </div>
-                    <div class="flex-grow overflow-auto max-h-[600px]">
-                        <table class="w-full text-left">
-                            <tbody id="proposalBody">
-                                <tr><td class="p-20 text-center text-slate-300 italic">Enter route and click calculate to generate proposal...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="section-explorer" class="hidden space-y-8">
-            <div class="glass p-8">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-                    <div>
-                        <label class="block text-[10px] font-black uppercase text-slate-400 mb-2">Search Destination</label>
-                        <input type="text" id="searchCity" oninput="filterExplorer()" class="input-premium" placeholder="Type city name...">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-black uppercase text-slate-400 mb-2">Price Sorting</label>
-                        <select id="sortOrder" onchange="filterExplorer()" class="input-premium bg-white">
-                            <option value="none">Default Sorting</option>
-                            <option value="low">Price: Low to High</option>
-                            <option value="high">Price: High to Low</option>
-                        </select>
-                    </div>
-                    <div class="flex items-center gap-3 p-4 bg-emerald-50 rounded-2xl">
-                        <span class="text-xl">✨</span>
-                        <p class="text-xs text-emerald-800 font-medium">Viewing <b>your live inventory</b> from Google Sheets.</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Markup %</label>
+                                <input type="number" id="markupInput" oninput="recalcAll()" class="w-full px-4 py-3 rounded-xl border border-slate-200" value="15">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">GST %</label>
+                                <input type="number" id="gstInput" oninput="recalcAll()" class="w-full px-4 py-3 rounded-xl border border-slate-200" value="5">
+                            </div>
+                        </div>
+                        <button onclick="runOptimizer()" class="btn-primary w-full text-sm tracking-widest uppercase">Generate Optimal Proposal</button>
                     </div>
                 </div>
             </div>
 
-            <div id="explorerGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div class="lg:col-span-8 space-y-6">
+                <div class="glass p-8 rounded-[2rem] card-shadow bg-slate-900 text-white">
+                    <div class="flex flex-wrap justify-between items-end gap-6">
+                        <div>
+                            <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Grand Total Investment</p>
+                            <h3 id="resGrandTotal" class="text-6xl font-black text-emerald-400 tracking-tighter">₹0</h3>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 border-t border-slate-800 pt-6 w-full">
+                            <div>
+                                <p class="text-slate-500 text-[9px] uppercase font-black">Hotels (Net)</p>
+                                <p id="resHotelUsed" class="text-sm font-bold">₹0</p>
+                            </div>
+                            <div>
+                                <p class="text-slate-500 text-[9px] uppercase font-black">Sights (Net)</p>
+                                <p id="resSightUsed" class="text-sm font-bold">₹0</p>
+                            </div>
+                            <div>
+                                <p class="text-slate-500 text-[9px] uppercase font-black">Markup</p>
+                                <p id="resMarkupVal" class="text-sm font-bold text-emerald-500">₹0</p>
+                            </div>
+                            <div>
+                                <p class="text-slate-500 text-[9px] uppercase font-black">GST Amount</p>
+                                <p id="resGstVal" class="text-sm font-bold">₹0</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-        </div>
 
+                <div id="proposalSection" class="hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div class="glass rounded-[2rem] card-shadow overflow-hidden bg-white">
+                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                            <h3 class="font-black text-slate-900 uppercase tracking-tight">Your Custom Itinerary</h3>
+                            <span class="text-[10px] bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full font-bold uppercase">Budget Optimized</span>
+                        </div>
+                        <div id="proposalBody" class="divide-y divide-slate-100"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="swapModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="glass bg-white w-full max-w-2xl rounded-[2rem] max-h-[80vh] flex flex-col shadow-2xl">
+            <div class="p-6 border-b flex justify-between items-center">
+                <h3 id="modalTitle" class="text-xl font-black uppercase tracking-tight">Select Option</h3>
+                <button onclick="closeModal()" class="text-slate-300 hover:text-slate-900 text-3xl">&times;</button>
+            </div>
+            <div id="modalContent" class="p-6 overflow-y-auto space-y-3"></div>
+        </div>
     </div>
 
     <datalist id="cityList"></datalist>
@@ -112,121 +154,233 @@
 <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbzYbmpf1dOUVJ2JAxr5UVeFCQL6sT6AaHP9N6gguF0Z0qaotsFJEzHa5jQnO39wsKMRnA/exec";
     let masterData = { hotels: [], sights: [] };
-    let selectedRoute = [];
+    let selectedRoute = []; 
+    let currentPlan = [];
 
     async function init() {
         try {
             const res = await fetch(API_URL);
             masterData = await res.json();
+            document.getElementById('connection-status').innerText = "System Ready";
             const cities = [...new Set(masterData.hotels.map(h => h.city))];
             document.getElementById('cityList').innerHTML = cities.map(c => `<option value="${c}">`).join('');
-            filterExplorer(); // Initial load for explorer
-        } catch (e) { console.error("Database connection failed."); }
+        } catch (e) { 
+            document.getElementById('connection-status').innerText = "Database Offline";
+        }
     }
 
-    function switchTab(tab) {
-        document.getElementById('section-planner').classList.toggle('hidden', tab !== 'planner');
-        document.getElementById('section-explorer').classList.toggle('hidden', tab !== 'explorer');
-        document.getElementById('tab-planner').classList.toggle('active', tab === 'planner');
-        document.getElementById('tab-explorer').classList.toggle('active', tab === 'explorer');
-    }
-
-    /* --- TAB 1 LOGIC --- */
     function addCityToRoute() {
         const city = document.getElementById('cityInput').value.trim();
         const nights = parseInt(document.getElementById('nightInput').value);
-        if(!city || !nights) return;
-        selectedRoute.push({ city, nights });
+        if(!city || isNaN(nights)) return;
+        selectedRoute.push({ id: Date.now(), city, nights });
+        renderRoute();
         document.getElementById('cityInput').value = "";
         document.getElementById('nightInput').value = "";
-        renderRoute();
     }
 
     function renderRoute() {
-        document.getElementById('routeList').innerHTML = selectedRoute.map((r, i) => `
-            <span class="bg-white border px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">
-                ${r.city} (${r.nights}N)
-                <button onclick="selectedRoute.splice(${i},1); renderRoute();" class="text-red-400">×</button>
-            </span>
-        `).join('');
-    }
-
-    function runOptimizer() {
-        const hBud = parseFloat(document.getElementById('hotelBudget').value) / selectedRoute.length;
-        const sBud = parseFloat(document.getElementById('sightBudget').value) / selectedRoute.length;
-        
-        let html = '';
-        let totalNet = 0;
-
-        selectedRoute.forEach(r => {
-            const bestHotels = masterData.hotels
-                .filter(h => h.city.toLowerCase() === r.city.toLowerCase())
-                .sort((a,b) => b.cost - a.cost);
-            
-            const hotel = bestHotels.find(h => (h.cost * r.nights) <= hBud) || bestHotels[bestHotels.length-1];
-            
-            const citySights = masterData.sights
-                .filter(s => s.city.toLowerCase().includes(r.city.toLowerCase()))
-                .sort((a,b) => b.price - a.price);
-
-            let chosenSights = [];
-            let currentS = 0;
-            citySights.forEach(s => { if(currentS + s.price <= sBud) { chosenSights.push(s); currentS += s.price; }});
-
-            const stayCost = (hotel?.cost || 0) * r.nights;
-            totalNet += (stayCost + currentS);
-
-            html += `
-                <tr class="border-b">
-                    <td class="p-8 w-1/3">
-                        <p class="text-[10px] font-black text-emerald-500 uppercase tracking-widest">${r.city}</p>
-                        <h4 class="text-2xl font-black">${r.nights} Nights Stay</h4>
-                    </td>
-                    <td class="p-8">
-                        <div class="mb-4">
-                            <p class="text-xs font-bold text-slate-400 uppercase">Selected Accommodation</p>
-                            <p class="font-bold text-slate-800">${hotel ? hotel.name : 'N/A'}</p>
-                            <p class="text-xs text-slate-500 italic">${hotel ? hotel.type : ''}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs font-bold text-slate-400 uppercase">Selected Experiences</p>
-                            ${chosenSights.map(s => `<p class="text-xs text-slate-600">• ${s.info}</p>`).join('')}
-                        </div>
-                    </td>
-                </tr>
-            `;
-        });
-
-        document.getElementById('proposalBody').innerHTML = html;
-        const final = totalNet + (totalNet * 0.15) + (totalNet * 0.15 * 0.18);
-        document.getElementById('resGrandTotal').innerText = `₹${Math.round(final).toLocaleString('en-IN')}`;
-    }
-
-    /* --- TAB 2 LOGIC --- */
-    function filterExplorer() {
-        const citySearch = document.getElementById('searchCity').value.toLowerCase();
-        const sort = document.getElementById('sortOrder').value;
-
-        let data = masterData.sights.filter(s => s.city.toLowerCase().includes(citySearch));
-        
-        if(sort === 'low') data.sort((a,b) => a.price - b.price);
-        if(sort === 'high') data.sort((a,b) => b.price - a.price);
-
-        document.getElementById('explorerGrid').innerHTML = data.map(s => `
-            <div class="glass p-6 card-anim bg-white">
-                <div class="flex justify-between items-start mb-4">
-                    <span class="bg-blue-100 text-blue-700 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter">${s.city}</span>
-                    <span class="font-black text-slate-900 italic">₹${s.price.toLocaleString('en-IN')}</span>
+        const list = document.getElementById('routeList');
+        list.innerHTML = selectedRoute.map((item, index) => `
+            <div class="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                <div class="flex items-center gap-3">
+                    <span class="text-emerald-500 font-bold">${index+1}</span>
+                    <span class="font-bold text-slate-700">${item.city}</span>
+                    <span class="text-[10px] bg-slate-100 px-2 py-1 rounded text-slate-500 font-bold uppercase">${item.nights} Nts</span>
                 </div>
-                <h4 class="font-bold text-slate-800 leading-tight mb-4 h-12 overflow-hidden">${s.info}</h4>
-                <button onclick="getAiInsight('${s.city}')" class="w-full py-2 border border-slate-200 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all">✨ Gemini Insight</button>
+                <button onclick="removeCity(${item.id})" class="text-slate-300 hover:text-red-500 text-xl">&times;</button>
             </div>
         `).join('');
     }
 
-    function getAiInsight(city) {
-        alert(`Gemini Luxury Tip for ${city}: Avoid the tourist crowds between 10 AM and 2 PM. We recommend a private twilight tour for the best lighting and exclusive access.`);
+    function removeCity(id) {
+        selectedRoute = selectedRoute.filter(r => r.id !== id);
+        renderRoute();
     }
+
+    function runOptimizer() {
+        const totalHBudget = parseFloat(document.getElementById('hotelBudget').value);
+        const totalSBudget = parseFloat(document.getElementById('sightBudget').value);
+        
+        if(selectedRoute.length === 0) return alert("Please define your route first.");
+
+        const totalNights = selectedRoute.reduce((sum, r) => sum + r.nights, 0);
+
+        currentPlan = selectedRoute.map(routeItem => {
+            // Proportional Budget Allocation
+            const weight = routeItem.nights / totalNights;
+            const cityHCap = totalHBudget * weight;
+            const citySCap = totalSBudget / selectedRoute.length;
+
+            const availableHotels = masterData.hotels
+                .filter(h => h.city.toLowerCase() === routeItem.city.toLowerCase())
+                .sort((a, b) => b.cost - a.cost);
+
+            // Find best luxury hotel within proportional cap
+            const bestHotel = availableHotels.find(h => (h.cost * routeItem.nights) <= cityHCap) || availableHotels[availableHotels.length - 1];
+            
+            // Allocate sights within cap
+            const citySights = masterData.sights.filter(s => s.city.toLowerCase().includes(routeItem.city.toLowerCase()));
+            let chosenSights = [];
+            let sCost = 0;
+            citySights.forEach(s => {
+                if(sCost + s.price <= citySCap) {
+                    chosenSights.push(s);
+                    sCost += s.price;
+                }
+            });
+
+            return {
+                id: routeItem.id,
+                city: routeItem.city,
+                nights: routeItem.nights,
+                hotel: bestHotel,
+                sights: chosenSights
+            };
+        });
+
+        renderProposal();
+        document.getElementById('proposalSection').classList.remove('hidden');
+    }
+
+    function renderProposal() {
+        const body = document.getElementById('proposalBody');
+        let hTotal = 0;
+        let sTotal = 0;
+
+        body.innerHTML = currentPlan.map((item, idx) => {
+            const hCost = (item.hotel?.cost || 0) * item.nights;
+            const sCost = item.sights.reduce((sum, s) => sum + s.price, 0);
+            hTotal += hCost;
+            sTotal += sCost;
+
+            return `
+                <div class="p-8 flex flex-col md:flex-row gap-8 hover:bg-slate-50/50 transition-colors print-break">
+                    <div class="md:w-1/4">
+                        <span class="text-[10px] font-black text-emerald-600 tracking-widest uppercase">Stop 0${idx+1}</span>
+                        <h4 class="text-3xl font-black text-slate-900">${item.city}</h4>
+                        <p class="text-slate-400 font-bold uppercase text-xs tracking-widest">${item.nights} Nights Stay</p>
+                    </div>
+                    
+                    <div class="flex-1 space-y-6">
+                        <div>
+                            <div class="flex justify-between items-start mb-1">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Accommodation</label>
+                                <button onclick="openHotelSwap(${item.id})" class="text-emerald-600 font-black text-[10px] uppercase hover:underline no-print">Swap Hotel</button>
+                            </div>
+                            <p class="font-extrabold text-slate-800 text-lg">${item.hotel?.name || 'Selection Pending'}</p>
+                            <p class="text-xs text-slate-500 font-bold uppercase">${item.hotel?.type} Category • ₹${item.hotel?.cost.toLocaleString('en-IN')}/night</p>
+                        </div>
+                        
+                        <div>
+                            <div class="flex justify-between items-center mb-3">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Curated Experiences</label>
+                                <button onclick="openSightSwap(${item.id})" class="bg-slate-900 text-white px-3 py-1 rounded-full text-[9px] font-black uppercase no-print">Edit Activities</button>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                ${item.sights.length > 0 ? item.sights.map(s => `
+                                    <span class="bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-800 shadow-sm">
+                                        ${s.info} <span class="ml-1 font-black opacity-40">₹${s.price.toLocaleString('en-IN')}</span>
+                                    </span>
+                                `).join('') : '<span class="text-slate-400 text-xs italic">No activities selected</span>'}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="md:w-1/4 text-right border-l border-slate-100 pl-6">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Subtotal</p>
+                        <p class="text-2xl font-black text-slate-900">₹${(hCost + sCost).toLocaleString('en-IN')}</p>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        updateTotals(hTotal, sTotal);
+    }
+
+    function updateTotals(hCost, sCost) {
+        const mPct = parseFloat(document.getElementById('markupInput').value) || 0;
+        const gPct = parseFloat(document.getElementById('gstInput').value) || 0;
+
+        const net = hCost + sCost;
+        const markupVal = net * (mPct / 100);
+        const gstVal = (net + markupVal) * (gPct / 100);
+        const total = net + markupVal + gstVal;
+
+        document.getElementById('resHotelUsed').innerText = `₹${hCost.toLocaleString('en-IN')}`;
+        document.getElementById('resSightUsed').innerText = `₹${sCost.toLocaleString('en-IN')}`;
+        document.getElementById('resMarkupVal').innerText = `₹${Math.round(markupVal).toLocaleString('en-IN')}`;
+        document.getElementById('resGstVal').innerText = `₹${Math.round(gstVal).toLocaleString('en-IN')}`;
+        document.getElementById('resGrandTotal').innerText = `₹${Math.round(total).toLocaleString('en-IN')}`;
+    }
+
+    function recalcAll() {
+        let h = 0; let s = 0;
+        currentPlan.forEach(p => {
+            h += (p.hotel?.cost || 0) * p.nights;
+            s += p.sights.reduce((sum, x) => sum + x.price, 0);
+        });
+        updateTotals(h, s);
+    }
+
+    function openHotelSwap(routeId) {
+        const item = currentPlan.find(p => p.id === routeId);
+        const options = masterData.hotels.filter(h => h.city.toLowerCase() === item.city.toLowerCase());
+        
+        document.getElementById('modalTitle').innerText = `Hotels in ${item.city}`;
+        document.getElementById('modalContent').innerHTML = options.map(h => `
+            <div onclick="selectHotel(${routeId}, '${h.name}')" class="p-4 border-2 border-slate-100 rounded-2xl hover:border-emerald-500 hover:bg-emerald-50 cursor-pointer flex justify-between items-center transition-all group">
+                <div>
+                    <p class="font-black text-slate-800 group-hover:text-emerald-700">${h.name}</p>
+                    <p class="text-xs text-slate-500 uppercase font-bold tracking-widest">${h.type} • ₹${h.cost}/nt</p>
+                </div>
+                <div class="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg text-[10px] font-black uppercase">Select</div>
+            </div>
+        `).join('');
+        toggleModal(true);
+    }
+
+    function selectHotel(routeId, name) {
+        const item = currentPlan.find(p => p.id === routeId);
+        item.hotel = masterData.hotels.find(h => h.name === name);
+        renderProposal();
+        toggleModal(false);
+    }
+
+    function openSightSwap(routeId) {
+        const item = currentPlan.find(p => p.id === routeId);
+        const options = masterData.sights.filter(s => s.city.toLowerCase().includes(item.city.toLowerCase()));
+        
+        document.getElementById('modalTitle').innerText = `Manage Activities: ${item.city}`;
+        document.getElementById('modalContent').innerHTML = options.map(s => {
+            const isSelected = item.sights.some(existing => existing.info === s.info);
+            return `
+                <div onclick="toggleSight(${routeId}, '${s.info}')" class="p-4 border-2 ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-slate-100'} rounded-2xl cursor-pointer flex justify-between items-center transition-all">
+                    <div>
+                        <p class="font-black text-slate-800">${s.info}</p>
+                        <p class="text-xs font-bold text-slate-400">₹${s.price.toLocaleString()}</p>
+                    </div>
+                    <div class="w-6 h-6 rounded-full border-2 ${isSelected ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200'} flex items-center justify-center text-xs">
+                        ${isSelected ? '✓' : '+'}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        toggleModal(true);
+    }
+
+    function toggleSight(routeId, info) {
+        const item = currentPlan.find(p => p.id === routeId);
+        const sightObj = masterData.sights.find(s => s.info === info);
+        const index = item.sights.findIndex(s => s.info === info);
+        if(index > -1) item.sights.splice(index, 1);
+        else item.sights.push(sightObj);
+        renderProposal();
+        openSightSwap(routeId);
+    }
+
+    function toggleModal(show) { document.getElementById('swapModal').classList.toggle('hidden', !show); }
+    function closeModal() { toggleModal(false); }
 
     init();
 </script>
