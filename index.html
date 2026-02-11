@@ -13,13 +13,13 @@
         .trip-table th, .trip-table td { border: 1px solid #94a3b8; padding: 8px 10px; text-align: left; word-wrap: break-word; }
         .header-blue { background-color: #87CEEB !important; color: #000; font-weight: bold; text-transform: uppercase; text-align: center; }
         .glass { background: white; border: 1px solid #e2e8f0; border-radius: 1rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
-        .day-label { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-weight: 800; color: #1e40af; font-size: 9px; margin-right: 5px; }
+        .day-label { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-weight: 800; color: #1e40af; font-size: 9px; margin-right: 5px; border: 1px solid #cbd5e1; }
         
         @media print { 
             .no-print { display: none !important; } 
             body { background: white; padding: 0 !important; }
             #pdf-content { width: 100% !important; padding: 10mm !important; transform: scale(0.98); transform-origin: top left; }
-            .price-col, .price-tag, .internal-only { display: none !important; }
+            .price-col, .price-tag { display: none !important; }
         }
         .pdf-mode .price-col, .pdf-mode .price-tag { display: none !important; }
     </style>
@@ -52,15 +52,15 @@
             <div class="glass p-5 space-y-4">
                 <h2 class="font-bold border-b pb-2 text-sm uppercase text-slate-600">Pricing Controls</h2>
                 <div class="grid grid-cols-2 gap-2">
-                    <input type="number" id="hotelBudget" oninput="runOptimizer()" class="p-2 border rounded font-bold" value="300000" placeholder="Hotel Net Cap">
-                    <input type="number" id="sightBudget" oninput="runOptimizer()" class="p-2 border rounded font-bold" value="80000" placeholder="Sight Net Cap">
+                    <input type="number" id="hotelBudget" oninput="runOptimizer()" class="p-2 border rounded font-bold" value="300000">
+                    <input type="number" id="sightBudget" oninput="runOptimizer()" class="p-2 border rounded font-bold" value="80000">
                 </div>
                 <div class="grid grid-cols-2 gap-2">
-                    <input type="number" id="markupInput" oninput="calculateBudgetInvestment()" class="p-2 border rounded" value="15" placeholder="Markup %">
-                    <input type="number" id="gstInput" oninput="calculateBudgetInvestment()" class="p-2 border rounded" value="5" placeholder="GST %">
+                    <input type="number" id="markupInput" oninput="calculateBudgetInvestment()" class="p-2 border rounded" value="15">
+                    <input type="number" id="gstInput" oninput="calculateBudgetInvestment()" class="p-2 border rounded" value="5">
                 </div>
                 <div class="flex gap-2">
-                    <button onclick="printPage()" class="flex-1 bg-slate-700 text-white py-3 rounded-lg font-bold text-xs uppercase">Print</button>
+                    <button onclick="window.print()" class="flex-1 bg-slate-700 text-white py-3 rounded-lg font-bold text-xs uppercase">Print</button>
                     <button onclick="downloadPDF()" class="flex-1 bg-orange-500 text-white py-3 rounded-lg font-bold text-xs uppercase">Download PDF</button>
                 </div>
             </div>
@@ -91,29 +91,19 @@
 
                 <h3 class="text-[10px] font-black uppercase mb-2 mt-6 text-blue-800 tracking-widest">01. Hotel Stays</h3>
                 <table class="trip-table">
-                    <thead>
-                        <tr class="header-blue">
-                            <th style="width:15%">City</th>
-                            <th style="width:12%">Check In</th>
-                            <th style="width:12%">Check Out</th>
-                            <th style="width:5%">Nts</th>
-                            <th style="width:30%">Hotel & Room Type</th>
-                            <th class="price-col" style="width:12%">Price/Night</th>
-                            <th class="no-print" style="width:8%">Swap</th>
-                        </tr>
-                    </thead>
+                    <thead><tr class="header-blue">
+                        <th style="width:15%">City</th><th style="width:12%">Check In</th><th style="width:12%">Check Out</th>
+                        <th style="width:5%">Nts</th><th style="width:30%">Hotel & Room Type</th>
+                        <th class="price-col" style="width:12%">Price/Night</th><th class="no-print" style="width:8%">Swap</th>
+                    </tr></thead>
                     <tbody id="hotelTableBody"></tbody>
                 </table>
 
                 <h3 class="text-[10px] font-black uppercase mb-2 mt-8 text-blue-800 tracking-widest">02. Day-wise Itinerary</h3>
                 <table class="trip-table">
-                    <thead>
-                        <tr class="header-blue">
-                            <th style="width:20%">City / Day</th>
-                            <th style="width:70%">Planned Activities</th>
-                            <th class="no-print" style="width:10%">Edit</th>
-                        </tr>
-                    </thead>
+                    <thead><tr class="header-blue">
+                        <th style="width:20%">City / Days</th><th style="width:70%">Planned Activities</th><th class="no-print" style="width:10%">Edit</th>
+                    </tr></thead>
                     <tbody id="sightTableBody"></tbody>
                 </table>
 
@@ -131,9 +121,15 @@
     </div>
 
     <div id="swapModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-white w-full max-w-xl rounded-2xl overflow-hidden shadow-2xl">
-            <div id="modalTitle" class="bg-blue-600 text-white p-5 font-bold flex justify-between items-center"><span>Select Option</span><button onclick="closeModal()" class="text-3xl">&times;</button></div>
-            <div id="modalContent" class="p-4 max-h-[70vh] overflow-y-auto space-y-2 bg-slate-50"></div>
+        <div class="bg-white w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="bg-blue-600 text-white p-5 font-bold flex justify-between items-center flex-shrink-0">
+                <span id="modalHeading">Manage Selection</span>
+                <button onclick="closeModal()" class="text-3xl">&times;</button>
+            </div>
+            <div id="modalContent" class="p-4 overflow-y-auto space-y-4 bg-slate-50"></div>
+            <div class="p-4 bg-white border-t text-right flex-shrink-0">
+                <button onclick="closeModal()" class="bg-blue-600 text-white px-8 py-2 rounded font-bold uppercase text-xs">Close</button>
+            </div>
         </div>
     </div>
 
@@ -152,22 +148,16 @@
             const cities = [...new Set(masterData.hotels.map(h => h.city))];
             document.getElementById('cityList').innerHTML = cities.map(c => `<option value="${c}">`).join('');
             document.getElementById('currentDate').innerText = `DATE: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}`;
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error("API Load Failed", e); }
     }
 
     function addCityToRoute() {
         const city = document.getElementById('cityInput').value.trim();
         const checkin = document.getElementById('checkinInput').value;
         const checkout = document.getElementById('checkoutInput').value;
-
-        if(!city || !checkin || !checkout) { alert("Please fill city and dates"); return; }
-        
-        const cin = new Date(checkin);
-        const cout = new Date(checkout);
-        const nights = Math.ceil((cout - cin) / (1000 * 60 * 60 * 24));
-
-        if(nights <= 0) { alert("Checkout must be after Check-in"); return; }
-
+        if(!city || !checkin || !checkout) return;
+        const nights = Math.ceil((new Date(checkout) - new Date(checkin)) / (1000 * 60 * 60 * 24));
+        if(nights <= 0) return;
         selectedRoute.push({ id: Date.now(), city, cin: checkin, cout: checkout, nights });
         renderRouteInputs();
         runOptimizer();
@@ -175,8 +165,8 @@
 
     function renderRouteInputs() {
         document.getElementById('routeList').innerHTML = selectedRoute.map(r => `
-            <div class="flex justify-between items-center bg-white p-2 rounded text-[10px] border shadow-sm">
-                <span><b>${r.city}</b> (${r.nights}N: ${r.cin} to ${r.cout})</span>
+            <div class="flex justify-between items-center bg-white p-2 rounded text-[10px] border">
+                <span><b>${r.city}</b> (${r.nights}N)</span>
                 <button onclick="removeRoute(${r.id})" class="text-red-500 font-bold px-2">✕</button>
             </div>
         `).join('');
@@ -199,59 +189,163 @@
             
             const citySights = masterData.sights.filter(s => s.city.toLowerCase().includes(route.city.toLowerCase()) && s.price > 0).sort((a, b) => b.price - a.price);
             let chosen = []; let total = 0;
-            for (let s of citySights) { if (total + s.price <= sCap) { chosen.push(s); total += s.price; } }
-            
+            citySights.forEach((s, idx) => {
+                if (total + s.price <= sCap) {
+                    chosen.push({ ...s, instanceId: Date.now() + Math.random(), assignedDay: idx % (route.nights + 1) });
+                    total += s.price;
+                }
+            });
             return { ...route, hotel: bestHotel, sights: chosen };
         });
         renderTables();
     }
 
     function renderTables() {
-        let hHtml = ""; let sHtml = "";
+        let hHtml = ""; let sHtml = ""; let globalDay = 1;
+
         currentPlan.forEach(item => {
             hHtml += `<tr>
                 <td class="font-bold uppercase">${item.city}</td>
-                <td>${formatDate(item.cin)}</td>
-                <td>${formatDate(item.cout)}</td>
+                <td>${formatDate(item.cin)}</td><td>${formatDate(item.cout)}</td>
                 <td class="text-center font-bold">${item.nights}</td>
-                <td><b class="uppercase">${item.hotel?.name || '---'}</b><br><span class="text-blue-600 italic">${item.hotel?.type || 'Standard'}</span></td>
+                <td><b class="uppercase">${item.hotel?.name || '---'}</b><br><span class="text-blue-600 italic text-[9px]">${item.hotel?.type || ''}</span></td>
                 <td class="text-center font-bold price-col">₹${(item.hotel?.cost || 0).toLocaleString()}</td>
-                <td class="no-print text-center"><button onclick="openHotelSwap(${item.id})" class="text-blue-600 font-bold">SWAP</button></td>
+                <td class="no-print text-center"><button onclick="openHotelSwap(${item.id})" class="text-blue-600 text-[10px] font-bold underline">SWAP</button></td>
             </tr>`;
 
-            // Logic to divide activities per day
-            const daysCount = item.nights + 1; // Total days in city
-            let activityGroups = Array.from({ length: daysCount }, () => []);
-            item.sights.forEach((s, idx) => {
-                activityGroups[idx % daysCount].push(s);
-            });
+            let dayRows = "";
+            for(let d=0; d <= item.nights; d++) {
+                const activities = item.sights.filter(s => s.assignedDay === d);
+                const actsMarkup = activities.length > 0 
+                    ? activities.map(s => `<div class="flex justify-between border-b border-slate-100 py-1"><span>• ${s.info}</span><span class="price-tag text-slate-400">₹${s.price.toLocaleString()}</span></div>`).join('')
+                    : `<span class="text-slate-300 italic text-[10px]">Free Day</span>`;
 
-            let sightContent = activityGroups.map((group, dayIdx) => {
-                if(group.length === 0) return "";
-                return `<div class="mb-2">
-                    <span class="day-label">DAY ${dayIdx + 1}</span>
-                    ${group.map(s => `<span class="activity-pill"><b>${s.info}</b> <span class="price-tag">₹${s.price.toLocaleString()}</span></span>`).join('')}
-                </div>`;
-            }).join('');
+                dayRows += `<div class="flex gap-3 mb-2"><div class="w-14 shrink-0"><span class="day-label">DAY ${globalDay}</span></div><div class="grow bg-slate-50/50 p-2 rounded">${actsMarkup}</div></div>`;
+                globalDay++;
+            }
+            globalDay--; 
 
             sHtml += `<tr>
-                <td class="font-bold uppercase">${item.city}</td>
-                <td>${sightContent || 'Free Day for Relaxation'}</td>
-                <td class="no-print text-center"><button onclick="openSightSwap(${item.id})" class="text-blue-600 font-bold">EDIT</button></td>
+                <td class="font-bold uppercase align-top pt-2">${item.city}</td>
+                <td class="py-2">${dayRows}</td>
+                <td class="no-print text-center align-top pt-2"><button onclick="openSightSwap(${item.id})" class="text-blue-600 text-[10px] font-bold underline">EDIT</button></td>
             </tr>`;
         });
+
         document.getElementById('hotelTableBody').innerHTML = hHtml;
         document.getElementById('sightTableBody').innerHTML = sHtml;
         document.getElementById('resDest').innerText = currentPlan.map(p => p.city).join(' - ') || '---';
-        document.getElementById('resDuration').innerText = `${selectedRoute.reduce((sum, r) => sum + r.nights, 0)} NIGHTS`;
+        document.getElementById('resDuration').innerText = `${selectedRoute.reduce((s, r) => s + r.nights, 0)} NIGHTS`;
         calculateBudgetInvestment();
     }
 
-    function formatDate(d) { if(!d) return "---"; const date = new Date(d); return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }); }
+    // IMPROVED HOTEL SWAP (Case Insensitive & Trimmed)
+    function openHotelSwap(routeId) {
+        const item = currentPlan.find(p => p.id === routeId);
+        const options = masterData.hotels.filter(h => h.city.toLowerCase() === item.city.toLowerCase());
+        
+        document.getElementById('modalHeading').innerText = `Select Hotel & Room: ${item.city}`;
+        
+        let html = `<div class="grid grid-cols-1 gap-3">`;
+        options.forEach((h, index) => {
+            const isSelected = item.hotel?.name.trim().toLowerCase() === h.name.trim().toLowerCase() && 
+                               item.hotel?.type.trim().toLowerCase() === h.type.trim().toLowerCase();
+            
+            html += `
+            <div onclick="selectHotel(${routeId}, ${index}, '${h.city}')" 
+                class="p-4 bg-white border rounded-lg cursor-pointer transition-all hover:border-blue-400 flex justify-between items-center ${isSelected ? 'border-blue-600 bg-blue-50 shadow-sm' : 'border-slate-200'}">
+                <div class="flex flex-col">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-black uppercase text-slate-800">${h.name}</span>
+                        ${isSelected ? '<span class="bg-blue-600 text-white text-[8px] px-1.5 py-0.5 rounded-full font-bold">SELECTED</span>' : ''}
+                    </div>
+                    <span class="text-[10px] font-bold text-blue-600 italic mt-1 tracking-wide">${h.type || 'Standard Room'}</span>
+                </div>
+                <div class="text-right">
+                    <span class="text-xs font-black text-slate-900">₹${h.cost.toLocaleString()}</span>
+                    <p class="text-[8px] text-slate-400 uppercase font-bold">Per Night</p>
+                </div>
+            </div>`;
+        });
+        html += `</div>`;
+        
+        document.getElementById('modalContent').innerHTML = html;
+        toggleModal(true);
+    }
 
+    // Updated logic: Using Index for 100% accurate selection
+    function selectHotel(routeId, hotelIndex, city) {
+        const route = currentPlan.find(p => p.id === routeId);
+        const cityHotels = masterData.hotels.filter(h => h.city.toLowerCase() === city.toLowerCase());
+        const selected = cityHotels[hotelIndex];
+        
+        if(selected) {
+            route.hotel = selected;
+            renderTables();
+            closeModal();
+        } else {
+            alert("Selection failed. Please try again.");
+        }
+    }
+
+    function openSightSwap(routeId) {
+        const route = currentPlan.find(p => p.id === routeId);
+        const citySights = masterData.sights.filter(s => s.city.toLowerCase().includes(route.city.toLowerCase()));
+        document.getElementById('modalHeading').innerText = `Manage Activities: ${route.city}`;
+        
+        let html = `<div class="space-y-6">`;
+        for(let d=0; d <= route.nights; d++) {
+            const dayActs = route.sights.filter(s => s.assignedDay === d);
+            html += `
+            <div class="bg-white border rounded-lg p-3 shadow-sm">
+                <h4 class="font-black text-blue-700 text-xs mb-3 flex items-center gap-2">
+                    <span class="bg-blue-100 px-2 py-0.5 rounded">DAY ${d+1}</span>
+                </h4>
+                <div class="space-y-2 mb-3">
+                    ${dayActs.map(s => `
+                        <div class="flex justify-between items-center bg-blue-50 p-2 rounded border border-blue-100">
+                            <span class="text-[10px] font-bold">${s.info}</span>
+                            <button onclick="removeActivity(${routeId}, ${s.instanceId})" class="text-red-500 font-bold px-2 text-sm">×</button>
+                        </div>
+                    `).join('')}
+                </div>
+                <select onchange="addActivityToDay(${routeId}, ${d}, this.value); this.value='';" class="w-full text-[10px] p-2 border rounded bg-slate-50 font-bold">
+                    <option value="">+ Add Activity to Day ${d+1}...</option>
+                    ${citySights.map(s => `<option value="${s.info}">${s.info} (₹${s.price})</option>`).join('')}
+                </select>
+            </div>`;
+        }
+        html += `</div>`;
+        document.getElementById('modalContent').innerHTML = html;
+        toggleModal(true);
+    }
+
+    function addActivityToDay(routeId, dayIndex, activityInfo) {
+        if(!activityInfo) return;
+        const route = currentPlan.find(p => p.id === routeId);
+        const sightRef = masterData.sights.find(s => s.info === activityInfo);
+        if(sightRef) {
+            route.sights.push({ ...sightRef, instanceId: Date.now() + Math.random(), assignedDay: dayIndex });
+            renderTables();
+            openSightSwap(routeId);
+        }
+    }
+
+    function removeActivity(routeId, instanceId) {
+        const route = currentPlan.find(p => p.id === routeId);
+        route.sights = route.sights.filter(s => s.instanceId !== instanceId);
+        renderTables();
+        openSightSwap(routeId);
+    }
+
+    function formatDate(d) { return d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '---'; }
+    
     function calculateBudgetInvestment() {
         let hNet = 0; let sNet = 0;
-        currentPlan.forEach(p => { hNet += (p.hotel?.cost || 0) * (p.nights || 0); sNet += (p.sights || []).reduce((sum, s) => sum + (s.price || 0), 0); });
+        currentPlan.forEach(p => { 
+            hNet += (p.hotel?.cost || 0) * (p.nights || 0); 
+            sNet += p.sights.reduce((sum, s) => sum + s.price, 0); 
+        });
         const mPct = parseFloat(document.getElementById('markupInput').value) || 0;
         const gPct = parseFloat(document.getElementById('gstInput').value) || 0;
         const net = hNet + sNet;
@@ -264,47 +358,10 @@
         document.getElementById('resGrandTotal').innerText = `₹${Math.round(net + mVal + gVal).toLocaleString('en-IN')}`;
     }
 
-    function openHotelSwap(id) {
-        const item = currentPlan.find(p => p.id === id);
-        const options = masterData.hotels.filter(h => h.city.toLowerCase() === item.city.toLowerCase());
-        document.getElementById('modalContent').innerHTML = options.map((h, idx) => `
-            <div onclick="selectHotel(${id}, ${idx}, '${h.city}')" class="p-3 bg-white border rounded hover:bg-blue-50 cursor-pointer flex justify-between">
-                <div><p class="font-bold uppercase">${h.name}</p><p class="text-[10px] text-blue-500">${h.type}</p></div>
-                <p class="font-bold">₹${h.cost.toLocaleString()}</p>
-            </div>`).join('');
-        toggleModal(true);
-    }
-    function selectHotel(pId, idx, city) {
-        const item = currentPlan.find(p => p.id === pId);
-        item.hotel = masterData.hotels.filter(h => h.city.toLowerCase() === city.toLowerCase())[idx];
-        renderTables(); toggleModal(false);
-    }
-    function openSightSwap(id) {
-        const item = currentPlan.find(p => p.id === id);
-        const options = masterData.sights.filter(s => s.city.toLowerCase().includes(item.city.toLowerCase()));
-        document.getElementById('modalContent').innerHTML = options.map((s, idx) => {
-            const sel = item.sights.some(x => x.info === s.info);
-            return `<div onclick="toggleSight(${id}, ${idx}, '${item.city}')" class="p-3 bg-white border ${sel ? 'border-blue-500 bg-blue-50' : ''} rounded cursor-pointer flex justify-between">
-                <span class="text-xs">${s.info}</span><span class="font-bold">₹${s.price.toLocaleString()}</span>
-            </div>`;
-        }).join('');
-        toggleModal(true);
-    }
-    function toggleSight(pId, idx, city) {
-        const item = currentPlan.find(p => p.id === pId);
-        const sight = masterData.sights.filter(s => s.city.toLowerCase().includes(city.toLowerCase()))[idx];
-        const sIdx = item.sights.findIndex(s => s.info === sight.info);
-        if(sIdx > -1) item.sights.splice(sIdx, 1); else item.sights.push(sight);
-        renderTables(); openSightSwap(pId);
-    }
-
-    function printPage() { window.print(); }
     function downloadPDF() {
         const element = document.getElementById('pdf-content');
         element.classList.add('pdf-mode');
-        html2pdf().from(element).set({ margin: 5, filename: 'TripStore_Proposal.pdf', html2canvas: { scale: 2 }, jsPDF: { format: 'a4', orientation: 'portrait' } }).save().then(() => {
-            element.classList.remove('pdf-mode');
-        });
+        html2pdf().from(element).set({ margin: 5, filename: 'TripStore_Itinerary.pdf', html2canvas: { scale: 2 }, jsPDF: { format: 'a4' } }).save().then(() => element.classList.remove('pdf-mode'));
     }
     function toggleModal(s) { document.getElementById('swapModal').classList.toggle('hidden', !s); }
     function closeModal() { toggleModal(false); }
