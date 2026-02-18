@@ -4,108 +4,53 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trip Store | Itinerary Architect</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
-    body { background: #f1f5f9; font-family: 'Inter', sans-serif; color: #1e293b; overflow-x: hidden; width: 100%; }
-    .trip-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 11px; table-layout: fixed; }
-    .trip-table th, .trip-table td { border: 1px solid #94a3b8; padding: 8px 10px; text-align: left; word-wrap: break-word; }
-    .header-blue { background-color: #87CEEB !important; color: #000; font-weight: bold; text-transform: uppercase; text-align: center; }
-    .glass { background: white; border: 1px solid #e2e8f0; border-radius: 1rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
-    
-    #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
-    .toast { padding: 12px 24px; border-radius: 8px; color: white; margin-bottom: 10px; font-weight: 600; font-size: 14px; animation: slideIn 0.3s ease-out; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2); }
-    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        body { background: #f1f5f9; font-family: 'Inter', sans-serif; color: #1e293b; }
+        .trip-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 11px; table-layout: fixed; }
+        .trip-table th, .trip-table td { border: 1px solid #94a3b8; padding: 8px 10px; text-align: left; word-wrap: break-word; }
+        .header-blue { background-color: #87CEEB !important; color: #000; font-weight: bold; text-transform: uppercase; text-align: center; }
+        .glass { background: white; border: 1px solid #e2e8f0; border-radius: 1rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        
+        /* Toast Notification Styles */
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
+        .toast { padding: 12px 24px; border-radius: 8px; color: white; margin-bottom: 10px; font-weight: 600; font-size: 14px; animation: slideIn 0.3s ease-out; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-    #main-wrapper { display: none; }
+        #main-wrapper { display: none; } /* Hidden until login */
 
-    /* Updated Responsive PDF Scaling */
-    .pdf-viewport {
-        width: 100%;
-        overflow: hidden;
-        background: transparent; /* Removed background to hide 'borders' */
-        padding: 0; /* Removed padding */
-        display: flex;
-        justify-content: center;
-        align-items: flex-start;
-    }
-
-    #pdf-content {
-        background: white;
-        width: 850px; 
-        min-width: 850px;
-        margin: 0 auto;
-        transform-origin: top center;
-        flex-shrink: 0;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-    }
-
-    /* Scaling and Negative Margin adjustments to kill ghost space */
-    @media (max-width: 1024px) {
-        #pdf-content { transform: scale(0.85); margin-bottom: -150px; }
-    }
-    @media (max-width: 768px) {
-        .pdf-viewport { background: transparent; }
-        #pdf-content { transform: scale(0.65); margin-bottom: -400px; }
-        .trip-table { font-size: 10px; }
-    }
-    @media (max-width: 480px) {
-        #pdf-content { transform: scale(0.40); margin-bottom: -650px; }
-    }
-
-    @media print { 
-        .no-print { display: none !important; } 
-        body { background: white; padding: 0 !important; overflow: visible !important; }
-        #pdf-content { 
-            width: 100% !important; 
-            min-width: 100% !important; 
-            padding: 10mm !important; 
-            transform: scale(1) !important; 
-            margin: 0 !important; 
-            box-shadow: none !important;
+        @media print { 
+            .no-print { display: none !important; } 
+            body { background: white; padding: 0 !important; }
+            #pdf-content { width: 100% !important; padding: 10mm !important; transform: scale(0.98); transform-origin: top left; }
+            .price-col, .price-tag { display: none !important; }
         }
-        .price-col, .price-tag { display: none !important; }
-    }
-
-    .pdf-section { page-break-inside: avoid !important; break-inside: avoid !important; display: block; margin-bottom: 20px; }
-    tr { page-break-inside: avoid !important; break-inside: avoid !important; }
-    thead { display: table-header-group; }
-</style>
+        .pdf-mode .price-col, .pdf-mode .price-tag { display: none !important; }
+    </style>
 </head>
-<body class="p-2 md:p-8">
+<body class="p-4 md:p-8">
 
     <div id="toast-container"></div>
 
-    <div id="login-screen" class="fixed inset-0 bg-slate-900 flex items-center justify-center z-[1000] p-4">
-        <div class="bg-white p-6 md:p-10 rounded-3xl shadow-2xl w-full max-w-md text-center">
+    <div id="login-screen" class="fixed inset-0 bg-slate-900 flex items-center justify-center z-[1000]">
+        <div class="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-md text-center">
             <div class="flex justify-center mb-4">
-                <img src="images/tripstorelogo.png" alt="TRIP STORE" class="h-12" onerror="this.outerHTML='<h1 class=\'text-3xl font-black text-blue-600 italic\'>TRIP STORE</h1>'">
+                <img src="images/tripstorelogo.png" alt="TRIP STORE" class="h-12" onerror="this.outerHTML='&lt;h1 class=\'text-3xl font-black text-blue-600 italic\'&gt;TRIP STORE&lt;/h1&gt;'">
             </div>
-            
-            <div class="flex bg-slate-100 p-1 rounded-xl mb-6">
-                <button id="tab-login" onclick="toggleAuthMode('login')" class="flex-1 py-2 rounded-lg font-bold text-sm bg-white shadow-sm">Login</button>
-                <button id="tab-signup" onclick="toggleAuthMode('signup')" class="flex-1 py-2 rounded-lg font-bold text-sm text-slate-500">Sign Up</button>
-            </div>
-
-            <div id="auth-fields" class="space-y-4">
-                <input type="text" id="userInput" class="w-full p-4 border-2 border-slate-100 rounded-2xl text-center font-bold focus:border-blue-500 outline-none transition-all" placeholder="Username">
-                <input type="password" id="passInput" class="w-full p-4 border-2 border-slate-100 rounded-2xl text-center text-xl tracking-[0.3em] focus:border-blue-500 outline-none transition-all" placeholder="••••">
-            </div>
-
-            <button id="authBtn" onclick="handleAuth()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold mt-6 hover:bg-blue-700 transition-all shadow-lg">Unlock System</button>
-            
-            <p id="loginError" class="text-red-500 text-xs mt-4 font-bold hidden"></p>
-            <p id="signupSuccess" class="text-green-600 text-xs mt-4 font-bold hidden">✅ Request sent! Contact Admin for approval.</p>
+            <p class="text-slate-500 text-sm mb-8 font-medium italic">Internal System Access</p>
+            <input type="password" id="passInput" class="w-full p-4 border-2 border-slate-100 rounded-2xl mb-4 text-center text-xl tracking-[0.5em] focus:border-blue-500 outline-none transition-all" placeholder="••••">
+            <button onclick="checkLogin()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg">Unlock System</button>
+            <p id="loginError" class="text-red-500 text-xs mt-4 font-bold hidden">❌ Access Denied</p>
         </div>
     </div>
 
     <div id="main-wrapper">
         <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
             <div class="lg:col-span-4 space-y-4 no-print">
                 
                 <div class="glass p-5">
@@ -133,7 +78,7 @@
                                 <input type="date" id="checkoutInput" class="w-full p-2 border rounded text-xs">
                             </div>
                         </div>
-                        <button onclick="addCityToRoute()" class="w-full bg-slate-800 text-white py-2 rounded font-bold mt-2 hover:bg-black transition-colors">+ Add Stop</button>
+                        <button onclick="addCityToRoute()" class="w-full bg-slate-800 text-white py-2 rounded font-bold mt-2 hover:bg-black">+ Add Stop</button>
                         <div id="routeList" class="space-y-1 mt-4"></div>
                     </div>
                 </div>
@@ -182,61 +127,59 @@
             </div>
 
             <div class="lg:col-span-8">
-                <div class="pdf-viewport">
-                    <div id="pdf-content" class="p-4 md:p-12 shadow-2xl rounded-sm">
-                        <div class="flex justify-between items-center mb-8 border-b pb-6">
-                            <div class="text-left">
-                                <h2 class="text-2xl font-black uppercase text-slate-800">Travel Proposal</h2>
-                                <p class="text-[10px] text-slate-400 font-bold" id="currentDate"></p>
-                            </div>
-                            <img src="images/tripstorelogo.png" alt="Trip Store" class="h-14 w-auto" onerror="this.style.display='block'">
+                <div id="pdf-content" class="bg-white p-8 md:p-12 shadow-2xl rounded-sm">
+                    <div class="flex justify-between items-center mb-8 border-b pb-6">
+                        <div class="text-left">
+                            <h2 class="text-2xl font-black uppercase text-slate-800">Travel Proposal</h2>
+                            <p class="text-[10px] text-slate-400 font-bold" id="currentDate"></p>
                         </div>
+                        <img src="images/tripstorelogo.png" alt="Trip Store" class="h-14 w-auto" onerror="this.style.display='block'">
+                    </div>
 
-                        <table class="trip-table">
-                            <tr>
-                                <td class="header-blue w-1/4">NAME OF PAX:</td>
-                                <td class="text-center font-bold uppercase" id="resPaxName">---</td>
-                                <td class="header-blue w-1/4">NUMBER OF PAX:</td>
-                                <td class="text-center font-bold uppercase" id="resPaxCount">2</td>
-                            </tr>
-                            <tr>
-                                <td class="header-blue w-1/4">DESTINATION:</td>
-                                <td class="text-center font-bold uppercase" id="resDest">---</td>
-                                <td class="header-blue w-1/4">TOTAL DURATION:</td>
-                                <td class="text-center font-bold" id="resDuration">0 NIGHTS</td>
-                            </tr>
-                            <tr>
-                                <td class="header-blue">GRAND TOTAL QUOTATION:</td>
-                                <td class="text-center font-black text-blue-700 text-3xl" colspan="3" id="resGrandTotal">₹0</td>
-                            </tr>
-                        </table>
+                    <table class="trip-table">
+                        <tr>
+                            <td class="header-blue w-1/4">NAME OF PAX:</td>
+                            <td class="text-center font-bold uppercase" id="resPaxName">---</td>
+                            <td class="header-blue w-1/4">NUMBER OF PAX:</td>
+                            <td class="text-center font-bold uppercase" id="resPaxCount">2</td>
+                        </tr>
+                        <tr>
+                            <td class="header-blue w-1/4">DESTINATION:</td>
+                            <td class="text-center font-bold uppercase" id="resDest">---</td>
+                            <td class="header-blue w-1/4">TOTAL DURATION:</td>
+                            <td class="text-center font-bold" id="resDuration">0 NIGHTS</td>
+                        </tr>
+                        <tr>
+                            <td class="header-blue">GRAND TOTAL QUOTATION:</td>
+                            <td class="text-center font-black text-blue-700 text-3xl" colspan="3" id="resGrandTotal">₹0</td>
+                        </tr>
+                    </table>
 
-                        <h3 class="text-[10px] font-black uppercase mb-2 mt-6 text-blue-800 tracking-widest">01. Hotel Stays</h3>
-                        <table class="trip-table">
-                            <thead><tr class="header-blue">
-                                <th style="width:12%">City</th><th style="width:12%">Check In</th><th style="width:12%">Check Out</th>
-                                <th style="width:5%">Nts</th><th style="width:25%">Hotel Name</th><th style="width:15%">Room Type</th>
-                                <th class="price-col" style="width:12%">Total Stay</th><th class="no-print" style="width:8%">Swap</th>
-                            </tr></thead>
-                            <tbody id="hotelTableBody"></tbody>
-                        </table>
+                    <h3 class="text-[10px] font-black uppercase mb-2 mt-6 text-blue-800 tracking-widest">01. Hotel Stays</h3>
+                    <table class="trip-table">
+                        <thead><tr class="header-blue">
+                            <th style="width:12%">City</th><th style="width:12%">Check In</th><th style="width:12%">Check Out</th>
+                            <th style="width:5%">Nts</th><th style="width:25%">Hotel Name</th><th style="width:15%">Room Type</th>
+                            <th class="price-col" style="width:12%">Total Stay</th><th class="no-print" style="width:8%">Swap</th>
+                        </tr></thead>
+                        <tbody id="hotelTableBody"></tbody>
+                    </table>
 
-                        <h3 class="text-[10px] font-black uppercase mb-2 mt-8 text-blue-800 tracking-widest">02. Day-wise Itinerary</h3>
-                        <table class="trip-table">
-                            <thead><tr class="header-blue">
-                                <th style="width:15%">Date</th><th style="width:60%">Planned Activities</th><th style="width:15%">City</th><th class="no-print" style="width:10%">Edit</th>
-                            </tr></thead>
-                            <tbody id="sightTableBody"></tbody>
-                        </table>
+                    <h3 class="text-[10px] font-black uppercase mb-2 mt-8 text-blue-800 tracking-widest">02. Day-wise Itinerary</h3>
+                    <table class="trip-table">
+                        <thead><tr class="header-blue">
+                            <th style="width:15%">Date</th><th style="width:60%">Planned Activities</th><th style="width:15%">City</th><th class="no-print" style="width:10%">Edit</th>
+                        </tr></thead>
+                        <tbody id="sightTableBody"></tbody>
+                    </table>
 
-                        <div class="mt-12 pt-6 border-t border-dashed no-print">
-                            <h3 class="text-[9px] font-bold text-slate-400 uppercase mb-3 tracking-widest">Profitability Analysis (Internal)</h3>
-                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                <div class="bg-blue-50 p-2 rounded border border-blue-100"><p class="text-[8px] font-bold uppercase text-blue-400">Hotel Net</p><p id="netH" class="font-bold">₹0</p></div>
-                                <div class="bg-blue-50 p-2 rounded border border-blue-100"><p id="labelS" class="text-[8px] font-bold uppercase text-blue-400">Sights Net</p><p id="netS" class="font-bold">₹0</p></div>
-                                <div class="bg-slate-50 p-2 rounded border border-slate-200"><p class="text-[8px] font-bold uppercase text-slate-400">Markup</p><p id="valM" class="font-bold">₹0</p></div>
-                                <div class="bg-slate-50 p-2 rounded border border-slate-200"><p class="text-[8px] font-bold uppercase text-slate-400">GST</p><p id="valG" class="font-bold">₹0</p></div>
-                            </div>
+                    <div class="mt-12 pt-6 border-t border-dashed no-print">
+                        <h3 class="text-[9px] font-bold text-slate-400 uppercase mb-3 tracking-widest">Profitability Analysis (Internal)</h3>
+                        <div class="grid grid-cols-4 gap-4">
+                            <div class="bg-blue-50 p-2 rounded border border-blue-100"><p class="text-[8px] font-bold uppercase text-blue-400">Hotel Net</p><p id="netH" class="font-bold">₹0</p></div>
+                            <div class="bg-blue-50 p-2 rounded border border-blue-100"><p id="labelS" class="text-[8px] font-bold uppercase text-blue-400">Sights Net</p><p id="netS" class="font-bold">₹0</p></div>
+                            <div class="bg-slate-50 p-2 rounded border border-slate-200"><p class="text-[8px] font-bold uppercase text-slate-400">Markup</p><p id="valM" class="font-bold">₹0</p></div>
+                            <div class="bg-slate-50 p-2 rounded border border-slate-200"><p class="text-[8px] font-bold uppercase text-slate-400">GST</p><p id="valG" class="font-bold">₹0</p></div>
                         </div>
                     </div>
                 </div>
@@ -259,12 +202,11 @@
     </div>
 
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbzgyLvJs4gCaZX5mfJ1Hy6T4pSbyYW5s77tTj7rO6QKJsIlAL-m_953Yg8Ahdk9wKDb_g/exec"; 
+    const API_URL = "https://script.google.com/macros/s/AKfycbwPP1al8IM2hiz4WL0A2gX3-48hCnw9tSdNr2tfdm03le1gVFroorkPGqi9M7W3rxpk-Q/exec"; // IMPORTANT: Update this after deployment
     let masterData = { hotels: [], sights: [] };
     let selectedRoute = []; 
     let currentPlan = [];
     let isAdmin = false;
-    let authMode = 'login'; // Track if user is logging in or signing up
 
     // --- TOAST SYSTEM ---
     function showToast(msg, type = 'success') {
@@ -276,45 +218,20 @@
         setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 500); }, 3000);
     }
 
-    // --- AUTHENTICATION UI TOGGLE ---
-    function toggleAuthMode(mode) {
-        authMode = mode;
-        const isLogin = mode === 'login';
-        
-        // Update Tabs
-        document.getElementById('tab-login').className = isLogin ? "flex-1 py-2 rounded-lg font-bold text-sm bg-white shadow-sm" : "flex-1 py-2 rounded-lg font-bold text-sm text-slate-500";
-        document.getElementById('tab-signup').className = !isLogin ? "flex-1 py-2 rounded-lg font-bold text-sm bg-white shadow-sm" : "flex-1 py-2 rounded-lg font-bold text-sm text-slate-500";
-        
-        // Update Button and Messages
-        document.getElementById('authBtn').innerText = isLogin ? "Unlock System" : "Request Access";
-        document.getElementById('loginError').classList.add('hidden');
-        if(document.getElementById('signupSuccess')) document.getElementById('signupSuccess').classList.add('hidden');
-    }
-
-    async function handleAuth() {
-        if (authMode === 'login') {
-            await checkLogin();
-        } else {
-            await handleSignup();
-        }
-        
-    }
-
-    // --- LOGIN LOGIC ---
+    // --- SECURE AUTH LOGIC ---
     async function checkLogin() {
-        const user = document.getElementById('userInput').value.trim();
-        const pass = document.getElementById('passInput').value.trim();
-        const loginBtn = document.getElementById('authBtn');
+        const pass = document.getElementById('passInput').value;
+        const loginBtn = document.querySelector('#login-screen button');
         const errorMsg = document.getElementById('loginError');
         
-        if(!user || !pass) return showToast("Enter credentials", "error");
+        if(!pass) return;
 
         loginBtn.innerText = "VERIFYING...";
         errorMsg.classList.add('hidden');
 
         try {
-            // New request includes 'user' parameter
-            const res = await fetch(`${API_URL}?action=checkLogin&user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}`);
+            // Check password on server
+            const res = await fetch(`${API_URL}?action=checkLogin&pass=${encodeURIComponent(pass)}`);
             const status = await res.text();
 
             if (status === "ADMIN") {
@@ -323,55 +240,13 @@
             } else if (status === "USER") {
                 isAdmin = false;
                 launchApp("USER MODE");
-            } else if (status === "PENDING_APPROVAL") {
-                errorMsg.innerText = "⏳ Account pending admin approval";
-                errorMsg.classList.remove('hidden');
             } else {
-                errorMsg.innerText = "❌ Invalid Credentials";
                 errorMsg.classList.remove('hidden');
+                loginBtn.innerText = "Unlock System";
             }
         } catch (e) {
             showToast("Connection Error", "error");
-        } finally {
-            if(document.getElementById('main-wrapper').style.display !== 'block') {
-                loginBtn.innerText = "Unlock System";
-            }
-        }
-    }
-
-    // --- SIGNUP LOGIC ---
-    async function handleSignup() {
-        const user = document.getElementById('userInput').value.trim();
-        const pass = document.getElementById('passInput').value.trim();
-        const loginBtn = document.getElementById('authBtn');
-        
-        if(!user || !pass) return showToast("Fill all fields", "error");
-        
-        loginBtn.innerText = "SENDING REQUEST...";
-
-        try {
-            const response = await fetch(API_URL, {
-                method: "POST",
-                body: JSON.stringify({
-                    action: "signup",
-                    username: user,
-                    password: pass
-                })
-            });
-            const result = await response.text();
-            
-            if (result.includes("Successful")) {
-                document.getElementById('signupSuccess').classList.remove('hidden');
-                document.getElementById('loginError').classList.add('hidden');
-                showToast("Request Sent Successfully");
-            } else {
-                document.getElementById('loginError').innerText = "❌ " + result;
-                document.getElementById('loginError').classList.remove('hidden');
-            }
-        } catch (e) {
-            showToast("Signup Failed", "error");
-        } finally {
-            loginBtn.innerText = "Request Access";
+            loginBtn.innerText = "Unlock System";
         }
     }
 
@@ -425,7 +300,6 @@
         btn.disabled = true;
 
         const data = {
-            action: "saveItinerary", // Explicitly define action for backend
             paxName: paxName,
             payload: {
                 paxCount: document.getElementById('paxCountInput').value,
@@ -682,53 +556,33 @@
     }
 
     function formatDate(d) { return d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '---'; }
-
-    async function downloadPDF() {
+    // --- OPTIMIZED PDF DOWNLOAD ---
+function downloadPDF() {
     const element = document.getElementById('pdf-content');
     const paxName = document.getElementById('paxNameInput').value || 'Traveler';
     
-    // Validate element exists
-    if (!element) {
-        showToast("Error: PDF content not found", "error");
-        return;
-    }
+    // Configure PDF options for high fidelity
+    const opt = {
+        margin:       [10, 10, 10, 10], // top, left, bottom, right
+        filename:     `TripStore_Proposal_${paxName}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { 
+            scale: 3, // Higher scale = sharper text/logos
+            useCORS: true, 
+            letterRendering: true 
+        },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+    };
 
-    showToast("Generating High-Res PDF...");
+    // Show a "Generating" toast
+    showToast("Generating high-quality PDF...");
 
-    try {
-        // 1. Setup Capture Options
-        const canvas = await html2canvas(element, {
-            scale: 2, // 2 is plenty for high res without crashing browser
-            useCORS: true,
-            allowTaint: true,
-            backgroundColor: "#ffffff",
-            scrollY: -window.scrollY // Fixes offset issues if user scrolled down
-        });
-
-        // 2. Prepare PDF Settings
-        const { jsPDF } = window.jspdf;
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
-        
-        // Calculate dimensions in mm
-        const pdfWidth = 210; // A4 Width
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-        // 3. Create PDF (p = portrait, mm = millimeters)
-        // We use the calculated height to ensure NO PAGE BREAKS
-        const pdf = new jsPDF('p', 'mm', [pdfWidth, pdfHeight]);
-        
-        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-        
-        // 4. Trigger Download
-        pdf.save(`TripStore_${paxName.replace(/\s+/g, '_')}.pdf`);
-        
+    // Run the conversion
+    html2pdf().set(opt).from(element).save().then(() => {
         showToast("PDF Downloaded!");
-    } catch (error) {
-        console.error("PDF Error:", error);
-        showToast("PDF Generation Failed", "error");
-    }
+    });
 }
-
     async function downloadExcel() {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Travel Proposal');
@@ -829,6 +683,9 @@
     
     function toggleModal(s) { document.getElementById('swapModal').classList.toggle('hidden', !s); }
     function closeModal() { toggleModal(false); }
+    
+    
+    // Auth starts the app; init is called inside launchApp
 </script>
 </body>
 </html>

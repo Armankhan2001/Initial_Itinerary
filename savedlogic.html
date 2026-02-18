@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trip Store | Itinerary Architect</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { background: #f1f5f9; font-family: 'Inter', sans-serif; color: #1e293b; }
+        .trip-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 11px; table-layout: fixed; }
+        .trip-table th, .trip-table td { border: 1px solid #94a3b8; padding: 8px 10px; text-align: left; word-wrap: break-word; }
+        .header-blue { background-color: #87CEEB !important; color: #000; font-weight: bold; text-transform: uppercase; text-align: center; }
+        .glass { background: white; border: 1px solid #e2e8f0; border-radius: 1rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        
+        @media print { 
+            .no-print { display: none !important; } 
+            body { background: white; padding: 0 !important; }
+            #pdf-content { width: 100% !important; padding: 10mm !important; transform: scale(0.98); transform-origin: top left; }
+            .price-col, .price-tag { display: none !important; }
+        }
+        .pdf-mode .price-col, .pdf-mode .price-tag { display: none !important; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-4 space-y-4 no-print">
+            <div class="glass p-5">
+                <img src="images/tripstorelogo.png" alt="TRIP STORE" class="h-10 mb-6" onerror="this.outerHTML='<h1 class=\'text-2xl font-black text-blue-600 italic\'>TRIP STORE</h1>'">
+                
+                <div class="space-y-3">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase">Traveler Details</label>
+                    <input type="text" id="paxNameInput" oninput="updatePaxHeader()" class="w-full p-2 border rounded text-xs" placeholder="Name of Pax">
+                    <input type="number" id="paxCountInput" oninput="handlePaxChange()" class="w-full p-2 border rounded text-xs" placeholder="Number of Pax" value="2">
+                    
+                    <hr class="border-slate-100 my-2">
+                    
+                    <label class="text-[10px] font-bold text-gray-400 uppercase">Route Details</label>
+                    <input type="text" list="cityList" id="cityInput" class="w-full p-2 border rounded" placeholder="Enter City">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-[9px] font-bold">Check-in</label>
+                            <input type="date" id="checkinInput" class="w-full p-2 border rounded text-xs">
+                        </div>
+                        <div>
+                            <label class="text-[9px] font-bold">Check-out</label>
+                            <input type="date" id="checkoutInput" class="w-full p-2 border rounded text-xs">
+                        </div>
+                    </div>
+                    <button onclick="addCityToRoute()" class="w-full bg-slate-800 text-white py-2 rounded font-bold mt-2 hover:bg-black">+ Add Stop</button>
+                    <div id="routeList" class="space-y-1 mt-4"></div>
+                </div>
+            </div>
+
+            <div class="glass p-5 space-y-3">
+                <h2 class="font-bold border-b pb-2 text-sm uppercase text-blue-600">Cloud Storage</h2>
+                <div class="flex gap-2">
+                    <input type="text" id="searchInput" class="flex-1 p-2 border rounded text-xs" placeholder="Search Pax Name">
+                    <button onclick="searchItinerary()" id="btnSearch" class="bg-blue-600 text-white px-4 py-2 rounded text-[10px] font-bold">LOAD</button>
+                </div>
+                <button onclick="saveItinerary()" id="btnSave" class="w-full bg-green-600 text-white py-2 rounded font-bold text-xs uppercase hover:bg-green-700">Save to Google Sheets</button>
+            </div>
+
+            <div class="glass p-5 space-y-4">
+                <h2 class="font-bold border-b pb-2 text-sm uppercase text-slate-600">Pricing Controls</h2>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label id="hotelBudgetLabel" class="text-[9px] font-bold text-gray-500 uppercase">Hotel Budget</label>
+                        <input type="number" id="hotelBudget" oninput="runOptimizer()" class="w-full p-2 border rounded font-bold" value="30000">
+                    </div>
+                    <div>
+                        <label id="sightBudgetLabel" class="text-[9px] font-bold text-gray-500 uppercase">Sight Budget</label>
+                        <input type="number" id="sightBudget" oninput="runOptimizer()" class="w-full p-2 border rounded font-bold" value="20000">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="number" id="markupInput" oninput="calculateBudgetInvestment()" class="p-2 border rounded" value="15">
+                    <input type="number" id="gstInput" oninput="calculateBudgetInvestment()" class="p-2 border rounded" value="5">
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="window.print()" class="flex-1 bg-slate-700 text-white py-3 rounded-lg font-bold text-xs uppercase">Print</button>
+                    <button onclick="downloadPDF()" class="flex-1 bg-orange-500 text-white py-3 rounded-lg font-bold text-xs uppercase">Download PDF</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-8">
+            <div id="pdf-content" class="bg-white p-8 md:p-12 shadow-2xl rounded-sm">
+                <div class="flex justify-between items-center mb-8 border-b pb-6">
+                    <div class="text-left">
+                        <h2 class="text-2xl font-black uppercase text-slate-800">Travel Proposal</h2>
+                        <p class="text-[10px] text-slate-400 font-bold" id="currentDate"></p>
+                    </div>
+                    <img src="images/tripstorelogo.png" alt="Trip Store" class="h-14 w-auto" onerror="this.style.display='block'">
+                </div>
+
+                <table class="trip-table">
+                    <tr>
+                        <td class="header-blue w-1/4">NAME OF PAX:</td>
+                        <td class="text-center font-bold uppercase" id="resPaxName">---</td>
+                        <td class="header-blue w-1/4">NUMBER OF PAX:</td>
+                        <td class="text-center font-bold uppercase" id="resPaxCount">2</td>
+                    </tr>
+                    <tr>
+                        <td class="header-blue w-1/4">DESTINATION:</td>
+                        <td class="text-center font-bold uppercase" id="resDest">---</td>
+                        <td class="header-blue w-1/4">TOTAL DURATION:</td>
+                        <td class="text-center font-bold" id="resDuration">0 NIGHTS</td>
+                    </tr>
+                    <tr>
+                        <td class="header-blue">GRAND TOTAL QUOTATION:</td>
+                        <td class="text-center font-black text-blue-700 text-3xl" colspan="3" id="resGrandTotal">₹0</td>
+                    </tr>
+                </table>
+
+                <h3 class="text-[10px] font-black uppercase mb-2 mt-6 text-blue-800 tracking-widest">01. Hotel Stays</h3>
+                <table class="trip-table">
+                    <thead><tr class="header-blue">
+                        <th style="width:12%">City</th><th style="width:12%">Check In</th><th style="width:12%">Check Out</th>
+                        <th style="width:5%">Nts</th><th style="width:25%">Hotel Name</th><th style="width:15%">Room Type</th>
+                        <th class="price-col" style="width:12%">Total Stay</th><th class="no-print" style="width:8%">Swap</th>
+                    </tr></thead>
+                    <tbody id="hotelTableBody"></tbody>
+                </table>
+
+                <h3 class="text-[10px] font-black uppercase mb-2 mt-8 text-blue-800 tracking-widest">02. Day-wise Itinerary</h3>
+                <table class="trip-table">
+                    <thead><tr class="header-blue">
+                        <th style="width:15%">Date</th><th style="width:60%">Planned Activities</th><th style="width:15%">City</th><th class="no-print" style="width:10%">Edit</th>
+                    </tr></thead>
+                    <tbody id="sightTableBody"></tbody>
+                </table>
+
+                <div class="mt-12 pt-6 border-t border-dashed no-print">
+                    <h3 class="text-[9px] font-bold text-slate-400 uppercase mb-3 tracking-widest">Profitability Analysis (Internal)</h3>
+                    <div class="grid grid-cols-4 gap-4">
+                        <div class="bg-blue-50 p-2 rounded border border-blue-100"><p class="text-[8px] font-bold uppercase text-blue-400">Hotel Net</p><p id="netH" class="font-bold">₹0</p></div>
+                        <div class="bg-blue-50 p-2 rounded border border-blue-100"><p id="labelS" class="text-[8px] font-bold uppercase text-blue-400">Sights Net</p><p id="netS" class="font-bold">₹0</p></div>
+                        <div class="bg-slate-50 p-2 rounded border border-slate-200"><p class="text-[8px] font-bold uppercase text-slate-400">Markup</p><p id="valM" class="font-bold">₹0</p></div>
+                        <div class="bg-slate-50 p-2 rounded border border-slate-200"><p class="text-[8px] font-bold uppercase text-slate-400">GST</p><p id="valG" class="font-bold">₹0</p></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="swapModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="bg-blue-600 text-white p-5 font-bold flex justify-between items-center flex-shrink-0">
+                <span id="modalHeading">Manage Selection</span>
+                <button onclick="closeModal()" class="text-3xl">&times;</button>
+            </div>
+            <div id="modalContent" class="p-4 overflow-y-auto space-y-4 bg-slate-50"></div>
+            <div class="p-4 bg-white border-t text-right flex-shrink-0">
+                <button onclick="closeModal()" class="bg-blue-600 text-white px-8 py-2 rounded font-bold uppercase text-xs">Close</button>
+            </div>
+        </div>
+    </div>
+    <datalist id="cityList"></datalist>
+
+<script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbymjWwpCDqQKLdTe6lTT1wLlCGDraaQTZbW1aJbx5d2UmJDbFUyWuifYJyaWM29x1uJ2A/exec";
+    let masterData = { hotels: [], sights: [] };
+    let selectedRoute = []; 
+    let currentPlan = [];
+
+    async function init() {
+        try {
+            const res = await fetch(API_URL);
+            masterData = await res.json();
+            const cities = [...new Set(masterData.hotels.map(h => h.city))];
+            document.getElementById('cityList').innerHTML = cities.map(c => `<option value="${c}">`).join('');
+            document.getElementById('currentDate').innerText = `DATE: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}`;
+            handlePaxChange();
+        } catch (e) { console.error("API Load Failed", e); }
+    }
+
+    // --- CLOUD STORAGE FUNCTIONS ---
+    async function saveItinerary() {
+        const paxName = document.getElementById('paxNameInput').value.trim();
+        if (!paxName) return alert("Please enter a Pax Name to save.");
+        
+        const btn = document.getElementById('btnSave');
+        btn.innerText = "SAVING...";
+        btn.disabled = true;
+
+        const data = {
+            paxName: paxName,
+            payload: {
+                paxCount: document.getElementById('paxCountInput').value,
+                hotelBudget: document.getElementById('hotelBudget').value,
+                sightBudget: document.getElementById('sightBudget').value,
+                markup: document.getElementById('markupInput').value,
+                gst: document.getElementById('gstInput').value,
+                selectedRoute: selectedRoute,
+                currentPlan: currentPlan
+            }
+        };
+
+        try {
+            const response = await fetch(API_URL, {
+                method: "POST",
+                body: JSON.stringify(data)
+            });
+            const result = await response.text();
+            alert("Itinerary saved successfully!");
+        } catch (e) {
+            alert("Error saving: " + e.message);
+        } finally {
+            btn.innerText = "SAVE TO GOOGLE SHEETS";
+            btn.disabled = false;
+        }
+    }
+
+    async function searchItinerary() {
+        const query = document.getElementById('searchInput').value.trim();
+        if (!query) return;
+
+        const btn = document.getElementById('btnSearch');
+        btn.innerText = "...";
+        
+        try {
+            const response = await fetch(`${API_URL}?action=search&name=${encodeURIComponent(query)}`);
+            const text = await response.text();
+
+            if (text === "Not Found") {
+                alert("No saved itinerary found for this name.");
+                return;
+            }
+
+            const data = JSON.parse(text);
+            
+            // Restore Values
+            document.getElementById('paxNameInput').value = query;
+            document.getElementById('paxCountInput').value = data.paxCount;
+            document.getElementById('hotelBudget').value = data.hotelBudget;
+            document.getElementById('sightBudget').value = data.sightBudget;
+            document.getElementById('markupInput').value = data.markup;
+            document.getElementById('gstInput').value = data.gst;
+            
+            selectedRoute = data.selectedRoute;
+            currentPlan = data.currentPlan;
+
+            // Update UI
+            updatePaxHeader();
+            renderRouteInputs();
+            renderTables();
+            alert("Itinerary Loaded!");
+        } catch (e) {
+            alert("Error loading itinerary.");
+            console.error(e);
+        } finally {
+            btn.innerText = "LOAD";
+        }
+    }
+
+    // --- EXISTING CORE LOGIC ---
+    function handlePaxChange() {
+        const pax = Number(document.getElementById('paxCountInput').value) || 1;
+        document.getElementById('hotelBudgetLabel').innerText = `Hotel Budget (${pax} Pax)`;
+        document.getElementById('sightBudgetLabel').innerText = `Sight Budget (${pax} Pax)`;
+        runOptimizer();
+    }
+
+    function updatePaxHeader() {
+        document.getElementById('resPaxName').innerText = document.getElementById('paxNameInput').value || "---";
+    }
+
+    function addCityToRoute() {
+        const city = document.getElementById('cityInput').value.trim();
+        const checkin = document.getElementById('checkinInput').value;
+        const checkout = document.getElementById('checkoutInput').value;
+        if(!city || !checkin || !checkout) return;
+        const nights = Math.ceil((new Date(checkout) - new Date(checkin)) / (1000 * 60 * 60 * 24));
+        if(nights <= 0) return;
+        selectedRoute.push({ id: Date.now(), city, cin: checkin, cout: checkout, nights });
+        selectedRoute.sort((a, b) => new Date(a.cin) - new Date(b.cin)); 
+        renderRouteInputs();
+        runOptimizer();
+    }
+
+    function renderRouteInputs() {
+        document.getElementById('routeList').innerHTML = selectedRoute.map(r => `
+            <div class="flex justify-between items-center bg-white p-2 rounded text-[10px] border">
+                <span><b>${r.city}</b> (${r.nights}N)</span>
+                <button onclick="removeRoute(${r.id})" class="text-red-500 font-bold px-2">✕</button>
+            </div>
+        `).join('');
+    }
+
+    function removeRoute(id) {
+        selectedRoute = selectedRoute.filter(r => r.id !== id);
+        renderRouteInputs();
+        runOptimizer();
+    }
+
+    function runOptimizer() {
+        if(selectedRoute.length === 0) { currentPlan = []; renderTables(); return; }
+        const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
+        const hBudgetTotal = Number(document.getElementById('hotelBudget').value) || 0;
+        const sBudgetTotal = Number(document.getElementById('sightBudget').value) || 0;
+        const validCitiesInRoute = selectedRoute.filter(route => masterData.hotels.some(h => h.city.toLowerCase() === route.city.toLowerCase()));
+        const validCount = validCitiesInRoute.length || 1;
+        const hCapPerCity = hBudgetTotal / validCount;
+        const sCapPerCityTotal = sBudgetTotal / validCount;
+        const individualSightCap = sCapPerCityTotal / paxCount;
+
+        currentPlan = selectedRoute.map(route => {
+            const cityHotels = masterData.hotels.filter(h => h.city.toLowerCase() === route.city.toLowerCase());
+            if (cityHotels.length === 0) return { ...route, hotel: null, sights: [] };
+            cityHotels.sort((a, b) => b.cost - a.cost);
+            const bestHotel = cityHotels.find(h => (Number(h.cost) * route.nights) <= hCapPerCity) || cityHotels[cityHotels.length - 1];
+            const citySights = masterData.sights.filter(s => s.city.toLowerCase().includes(route.city.toLowerCase()) && Number(s.price) > 0).sort((a, b) => b.price - a.price);
+            let chosen = []; 
+            let runningSpent = 0;
+            citySights.forEach((s, idx) => {
+                if (runningSpent + Number(s.price) <= individualSightCap) {
+                    chosen.push({ ...s, price: Number(s.price), instanceId: Date.now() + Math.random(), assignedDay: idx % (route.nights + 1) });
+                    runningSpent += Number(s.price);
+                }
+            });
+            return { ...route, hotel: bestHotel, sights: chosen };
+        });
+        renderTables();
+    }
+
+    function renderTables() {
+        let hHtml = ""; let sHtml = "";
+        const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
+        document.getElementById('resPaxCount').innerText = paxCount;
+
+        currentPlan.forEach(item => {
+            const hotelCostTotal = (Number(item.hotel?.cost) || 0) * item.nights;
+            hHtml += `<tr>
+                <td class="font-bold uppercase">${item.city}</td>
+                <td>${formatDate(item.cin)}</td><td>${formatDate(item.cout)}</td>
+                <td class="text-center font-bold">${item.nights}</td>
+                <td><b class="uppercase">${item.hotel?.name || '---'} (or Similar)</b></td>
+                <td><span class="text-blue-600 italic text-[9px]">${item.hotel?.type || '---'}</span></td>
+                <td class="text-center font-bold price-col">₹${hotelCostTotal.toLocaleString()}</td>
+                <td class="no-print text-center"><button onclick="openHotelSwap(${item.id})" class="text-blue-600 text-[10px] font-bold underline">SWAP</button></td>
+            </tr>`;
+
+            for(let d=0; d <= item.nights; d++) {
+                const activities = item.sights.filter(s => s.assignedDay === d);
+                const currentDayDate = new Date(item.cin);
+                currentDayDate.setDate(currentDayDate.getDate() + d);
+                const actsMarkup = activities.length > 0 
+                    ? activities.map(s => `<div class="flex justify-between border-b border-slate-100 py-1"><span>• ${s.info}</span><span class="price-tag text-slate-400">₹${(Number(s.price) * paxCount).toLocaleString()}</span></div>`).join('')
+                    : `<span class="text-slate-300 italic text-[10px]">Free Day / Transfer</span>`;
+
+                sHtml += `<tr>
+                    <td class="text-center font-bold">${formatDate(currentDayDate)}</td>
+                    <td class="py-2">${actsMarkup}</td>
+                    <td class="font-bold uppercase text-center">${item.city}</td>
+                    <td class="no-print text-center"><button onclick="openSightSwap(${item.id})" class="text-blue-600 text-[10px] font-bold underline">EDIT</button></td>
+                </tr>`;
+            }
+        });
+
+        document.getElementById('hotelTableBody').innerHTML = hHtml;
+        document.getElementById('sightTableBody').innerHTML = sHtml;
+        document.getElementById('resDest').innerText = [...new Set(currentPlan.map(p => p.city))].join(' - ') || '---';
+        document.getElementById('resDuration').innerText = `${selectedRoute.reduce((s, r) => s + r.nights, 0)} NIGHTS`;
+        calculateBudgetInvestment();
+    }
+
+    function calculateBudgetInvestment() {
+        let hNet = 0; let sNet = 0;
+        const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
+        currentPlan.forEach(p => { 
+            hNet += (Number(p.hotel?.cost) || 0) * (Number(p.nights) || 0); 
+            sNet += p.sights.reduce((sum, s) => sum + (Number(s.price) * paxCount), 0); 
+        });
+        const mPct = Number(document.getElementById('markupInput').value) || 0;
+        const gPct = Number(document.getElementById('gstInput').value) || 0;
+        const netTotal = hNet + sNet;
+        const markupValue = netTotal * (mPct / 100);
+        const gstValue = markupValue * (gPct / 100);
+        document.getElementById('netH').innerText = `₹${hNet.toLocaleString()}`;
+        document.getElementById('netS').innerText = `₹${sNet.toLocaleString()}`;
+        document.getElementById('valM').innerText = `₹${Math.round(markupValue).toLocaleString()}`;
+        document.getElementById('valG').innerText = `₹${Math.round(gstValue).toLocaleString()}`;
+        const grandTotal = Math.round(netTotal + markupValue + gstValue);
+        document.getElementById('resGrandTotal').innerText = `₹${grandTotal.toLocaleString('en-IN')}`;
+    }
+
+    function openHotelSwap(routeId) {
+        const item = currentPlan.find(p => p.id === routeId);
+        const options = masterData.hotels.filter(h => h.city.toLowerCase() === item.city.toLowerCase());
+        document.getElementById('modalHeading').innerText = `Select Hotel: ${item.city}`;
+        let html = options.length > 0 ? `<div class="grid grid-cols-1 gap-3">` : `<p class="p-4 text-center text-gray-500">No hotels found.</p>`;
+        options.forEach((h, index) => {
+            html += `<div onclick="selectHotel(${routeId}, ${index}, '${h.city}')" class="p-4 bg-white border rounded-lg cursor-pointer hover:border-blue-400 flex justify-between items-center">
+                <div class="flex flex-col"><span class="text-xs font-black uppercase">${h.name}</span><span class="text-[10px] text-blue-600 italic">${h.type || 'Standard'}</span></div>
+                <div class="text-right"><span class="text-xs font-black">₹${(Number(h.cost)).toLocaleString()}</span></div>
+            </div>`;
+        });
+        document.getElementById('modalContent').innerHTML = html + "</div>";
+        toggleModal(true);
+    }
+
+    function selectHotel(routeId, hotelIndex, city) {
+        const route = currentPlan.find(p => p.id === routeId);
+        const cityHotels = masterData.hotels.filter(h => h.city.toLowerCase() === city.toLowerCase());
+        route.hotel = cityHotels[hotelIndex];
+        renderTables();
+        closeModal();
+    }
+
+    function openSightSwap(routeId) {
+        const route = currentPlan.find(p => p.id === routeId);
+        const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
+        document.getElementById('modalHeading').innerText = `Manage Activities: ${route.city}`;
+        renderSightModalContent(route, paxCount);
+        toggleModal(true);
+    }
+
+    function renderSightModalContent(route, paxCount) {
+        const citySights = masterData.sights.filter(s => s.city.toLowerCase().includes(route.city.toLowerCase()));
+        let html = `<div class="space-y-6">`;
+        for(let d=0; d <= route.nights; d++) {
+            const dayActs = route.sights.filter(s => s.assignedDay === d);
+            html += `<div class="bg-white border rounded-lg p-3">
+                <h4 class="font-black text-blue-700 text-xs mb-3">DAY ${d+1}</h4>
+                <div class="space-y-2 mb-3">
+                    ${dayActs.map(s => `<div class="flex justify-between items-center bg-blue-50 p-2 rounded text-[10px]">
+                        <span>${s.info}</span>
+                        <button onclick="removeActivity(${route.id}, ${s.instanceId})" class="text-red-500 font-bold">×</button>
+                    </div>`).join('')}
+                </div>
+                <select onchange="addActivityToDay(${route.id}, ${d}, this.value)" class="w-full text-[10px] p-2 border rounded font-bold">
+                    <option value="">+ Add Activity...</option>
+                    ${citySights.map(s => `<option value="${s.info}">${s.info} (₹${(Number(s.price) * paxCount).toLocaleString()})</option>`).join('')}
+                </select>
+            </div>`;
+        }
+        document.getElementById('modalContent').innerHTML = html + `</div>`;
+    }
+
+    function addActivityToDay(routeId, day, info) {
+        if(!info) return;
+        const route = currentPlan.find(p => p.id === routeId);
+        const sight = masterData.sights.find(s => s.info === info);
+        if(route && sight) {
+            route.sights.push({ ...sight, price: Number(sight.price), instanceId: Date.now() + Math.random(), assignedDay: day });
+            renderTables();
+            renderSightModalContent(route, Number(document.getElementById('paxCountInput').value));
+        }
+    }
+
+    function removeActivity(routeId, instanceId) {
+        const route = currentPlan.find(p => p.id === routeId);
+        route.sights = route.sights.filter(s => s.instanceId !== instanceId);
+        renderTables();
+        renderSightModalContent(route, Number(document.getElementById('paxCountInput').value));
+    }
+
+    function formatDate(d) { return d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '---'; }
+    function downloadPDF() {
+        const element = document.getElementById('pdf-content');
+        element.classList.add('pdf-mode');
+        html2pdf().from(element).set({ margin: 5, filename: 'TripStore_Proposal.pdf', html2canvas: { scale: 2 }, jsPDF: { format: 'a4' } }).save().then(() => element.classList.remove('pdf-mode'));
+    }
+    function toggleModal(s) { document.getElementById('swapModal').classList.toggle('hidden', !s); }
+    function closeModal() { toggleModal(false); }
+    init();
+</script>
+</body>
+</html>

@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trip Store | Itinerary Architect Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --brand-blue: #2563eb;
+            --brand-dark: #1e293b;
+            --header-bg: #87CEEB;
+        }
+
+        body { 
+            background: #f8fafc; 
+            font-family: 'Inter', sans-serif; 
+            color: #1e293b; 
+            line-height: 1.5;
+        }
+
+        /* Table Styling */
+        .trip-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-bottom: 20px; 
+            font-size: 11px; 
+            table-layout: fixed; 
+            background: white;
+        }
+
+        .trip-table th, .trip-table td { 
+            border: 1px solid #cbd5e1; 
+            padding: 10px 12px; 
+            text-align: left; 
+            word-wrap: break-word; 
+        }
+
+        .header-blue { 
+            background-color: var(--header-bg) !important; 
+            color: #000; 
+            font-weight: 800; 
+            text-transform: uppercase; 
+            text-align: center; 
+            letter-spacing: 0.05em;
+        }
+
+        /* Glassmorphism UI */
+        .glass { 
+            background: white; 
+            border: 1px solid #e2e8f0; 
+            border-radius: 1rem; 
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); 
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 10px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        /* PDF & Print Transitions */
+        @media print { 
+            .no-print { display: none !important; } 
+            body { background: white; padding: 0 !important; }
+            #pdf-content { 
+                width: 100% !important; 
+                padding: 0 !important; 
+                box-shadow: none !important;
+                border: none !important;
+            }
+            .price-col, .price-tag, .internal-meta { display: none !important; }
+        }
+
+        .pdf-mode .price-col, .pdf-mode .price-tag, .pdf-mode .no-pdf { 
+            display: none !important; 
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <div class="lg:col-span-4 space-y-6 no-print">
+            
+            <div class="glass p-6">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black italic">TS</div>
+                    <h1 class='text-2xl font-black text-slate-800 tracking-tighter'>TRIP STORE <span class="text-blue-600">ARCHITECT</span></h1>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="input-group">
+                        <label>Lead Traveler Name</label>
+                        <input type="text" id="paxNameInput" oninput="updatePaxHeader()" class="w-full p-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. John Doe">
+                    </div>
+
+                    <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                        <div class="input-group">
+                            <label class="text-blue-700">Number of Pax (Critical for Math)</label>
+                            <input type="number" id="paxCountInput" oninput="syncPaxLogic()" class="w-full p-2.5 border border-blue-200 rounded-lg text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" value="2">
+                        </div>
+                    </div>
+                    
+                    <hr class="border-slate-100">
+                    
+                    <div class="input-group">
+                        <label>Route Planning</label>
+                        <input type="text" list="cityList" id="cityInput" class="w-full p-2.5 border rounded-lg text-sm mb-2" placeholder="Search City...">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[9px]">Arrival</label>
+                                <input type="date" id="checkinInput" class="w-full p-2 border rounded text-xs">
+                            </div>
+                            <div>
+                                <label class="text-[9px]">Departure</label>
+                                <input type="date" id="checkoutInput" class="w-full p-2 border rounded text-xs">
+                            </div>
+                        </div>
+                        <button onclick="addCityToRoute()" class="w-full bg-slate-900 text-white py-3 rounded-lg font-bold mt-4 hover:bg-blue-600 transition-all shadow-lg">+ Add Destination</button>
+                    </div>
+                    
+                    <div id="routeList" class="space-y-2 mt-4 max-h-[200px] overflow-y-auto pr-2">
+                        </div>
+                </div>
+            </div>
+
+            <div class="glass p-6 space-y-5">
+                <h2 class="font-black text-xs uppercase text-slate-400 tracking-widest border-b pb-3">Budget & Profitability Engine</h2>
+                
+                <div class="grid grid-cols-1 gap-4">
+                    <div class="input-group">
+                        <label id="hotelBudgetLbl" class="text-blue-600">Hotel Budget for 2 Pax</label>
+                        <input type="number" id="hotelBudget" oninput="runOptimizer()" class="w-full p-3 border rounded-xl font-black text-lg text-blue-900" value="300000">
+                    </div>
+                    <div class="input-group">
+                        <label id="sightBudgetLbl" class="text-orange-600">Sightseeing Budget for 2 Pax</label>
+                        <input type="number" id="sightBudget" oninput="runOptimizer()" class="w-full p-3 border rounded-xl font-black text-lg text-orange-900" value="80000">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="input-group">
+                        <label>Agency Markup %</label>
+                        <input type="number" id="markupInput" oninput="calculateBudgetInvestment()" class="w-full p-2 border rounded-lg text-sm" value="15">
+                    </div>
+                    <div class="input-group">
+                        <label>GST on Markup %</label>
+                        <input type="number" id="gstInput" oninput="calculateBudgetInvestment()" class="w-full p-2 border rounded-lg text-sm" value="5">
+                    </div>
+                </div>
+
+                <div class="flex gap-3 pt-2">
+                    <button onclick="window.print()" class="flex-1 bg-white border-2 border-slate-200 text-slate-700 py-3 rounded-xl font-bold text-xs uppercase hover:bg-slate-50 transition-all">Print</button>
+                    <button onclick="downloadPDF()" class="flex-1 bg-orange-500 text-white py-3 rounded-xl font-bold text-xs uppercase hover:bg-orange-600 shadow-orange-200 shadow-lg transition-all">Export PDF</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-8">
+            <div id="pdf-content" class="bg-white p-10 md:p-16 shadow-2xl rounded-sm border border-slate-200 min-h-[1100px] relative">
+                
+                <div class="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none overflow-hidden select-none no-print">
+                    <h1 class="text-[150px] font-black -rotate-12">TRIP STORE</h1>
+                </div>
+
+                <div class="flex justify-between items-start mb-10 border-b-4 border-blue-600 pb-8 relative z-10">
+                    <div>
+                        <h2 class="text-4xl font-black uppercase text-slate-800 tracking-tighter">Travel Proposal</h2>
+                        <div class="mt-2 space-y-1">
+                            <p class="text-[10px] text-blue-600 font-black tracking-widest uppercase" id="currentDate">DATE: -- --- ----</p>
+                            <p class="text-[9px] text-slate-400 font-bold uppercase">Reference: TS/PRP/2024/0821</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class='text-3xl font-black text-blue-600 italic'>TRIP STORE</div>
+                        <p class="text-[9px] text-slate-400 font-medium max-w-[200px] mt-2">Premium Itinerary Curation & Destination Management Services</p>
+                    </div>
+                </div>
+
+                <table class="trip-table relative z-10">
+                    <tr>
+                        <td class="header-blue w-1/4">Primary Guest:</td>
+                        <td class="text-center font-bold uppercase text-blue-900" id="resPaxName">---</td>
+                        <td class="header-blue w-1/4">Total Travelers:</td>
+                        <td class="text-center font-bold uppercase" id="resPaxCount">2</td>
+                    </tr>
+                    <tr>
+                        <td class="header-blue w-1/4">Route:</td>
+                        <td class="text-center font-bold uppercase text-xs" id="resDest">---</td>
+                        <td class="header-blue w-1/4">Duration:</td>
+                        <td class="text-center font-bold" id="resDuration">0 NIGHTS</td>
+                    </tr>
+                    <tr>
+                        <td class="header-blue py-6">Grand Total Quote:</td>
+                        <td class="text-center font-black text-blue-700 text-4xl" colspan="3" id="resGrandTotal">₹0</td>
+                    </tr>
+                </table>
+
+                <div class="mt-10 mb-4 flex items-center gap-4">
+                    <div class="h-[2px] bg-slate-100 flex-1"></div>
+                    <h3 class="text-[12px] font-black uppercase text-blue-800 tracking-[0.2em]">01. Accommodations</h3>
+                    <div class="h-[2px] bg-slate-100 flex-1"></div>
+                </div>
+                
+                <table class="trip-table">
+                    <thead>
+                        <tr class="header-blue">
+                            <th style="width:15%">City</th>
+                            <th style="width:12%">Check-In</th>
+                            <th style="width:12%">Check-Out</th>
+                            <th style="width:6%">Nts</th>
+                            <th style="width:30%">Hotel Property</th>
+                            <th style="width:15%">Category</th>
+                            <th class="price-col" style="width:12%">Total (Net)</th>
+                            <th class="no-print" style="width:10%">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="hotelTableBody">
+                        </tbody>
+                </table>
+
+                <div class="mt-12 mb-4 flex items-center gap-4">
+                    <div class="h-[2px] bg-slate-100 flex-1"></div>
+                    <h3 class="text-[12px] font-black uppercase text-blue-800 tracking-[0.2em]">02. Daily Experience Itinerary</h3>
+                    <div class="h-[2px] bg-slate-100 flex-1"></div>
+                </div>
+
+                <table class="trip-table">
+                    <thead>
+                        <tr class="header-blue">
+                            <th style="width:15%">Day / Date</th>
+                            <th style="width:55%">Activity & Experience Details</th>
+                            <th style="width:15%">Location</th>
+                            <th class="no-print" style="width:15%">Modify</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sightTableBody">
+                        </tbody>
+                </table>
+
+                <div class="mt-16 grid grid-cols-2 gap-10 border-t pt-8">
+                    <div>
+                        <h4 class="text-[10px] font-black uppercase mb-3 text-slate-800 underline underline-offset-4">Terms & Conditions</h4>
+                        <ul class="text-[9px] text-slate-500 space-y-1 list-disc pl-3">
+                            <li>Rates are subject to availability at the time of final booking.</li>
+                            <li>Standard check-in time is 14:00 hrs and check-out is 11:00 hrs.</li>
+                            <li>Early check-in/late check-out is strictly subject to hotel policy.</li>
+                            <li>Booking is non-refundable 15 days prior to arrival.</li>
+                            <li>TCS (5% or 20%) will be applicable as per Government of India norms.</li>
+                        </ul>
+                    </div>
+                    <div class="text-right">
+                        <h4 class="text-[10px] font-black uppercase mb-3 text-slate-800 underline underline-offset-4">Bank Details for Remittance</h4>
+                        <p class="text-[9px] text-slate-500">Beneficiary: <b>TRIP STORE PRIVATE LIMITED</b></p>
+                        <p class="text-[9px] text-slate-500">Bank: HDFC Bank Limited</p>
+                        <p class="text-[9px] text-slate-500">Account No: 50200048291044</p>
+                        <p class="text-[9px] text-slate-500">IFSC Code: HDFC0000122</p>
+                    </div>
+                </div>
+
+                <div class="mt-20 pt-10 border-t-2 border-dashed border-slate-200 no-print">
+                    <div class="bg-slate-900 rounded-2xl p-6 text-white">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-xs font-black uppercase tracking-widest text-blue-400">Internal Agency Dashboard (Costing)</h3>
+                            <span class="bg-blue-600/20 text-blue-400 text-[8px] px-2 py-1 rounded font-bold">LIVE ANALYSIS</span>
+                        </div>
+                        <div class="grid grid-cols-4 gap-6">
+                            <div class="border-l-2 border-blue-500 pl-4">
+                                <p class="text-[9px] text-slate-400 uppercase font-bold">Total Hotel Cost</p>
+                                <p id="netH" class="text-xl font-black">₹0</p>
+                            </div>
+                            <div class="border-l-2 border-orange-500 pl-4">
+                                <p id="labelS" class="text-[9px] text-slate-400 uppercase font-bold">Sights Net (x2 Pax)</p>
+                                <p id="netS" class="text-xl font-black">₹0</p>
+                            </div>
+                            <div class="border-l-2 border-green-500 pl-4">
+                                <p class="text-[9px] text-slate-400 uppercase font-bold">Agency Profit</p>
+                                <p id="valM" class="text-xl font-black text-green-400">₹0</p>
+                            </div>
+                            <div class="border-l-2 border-slate-500 pl-4">
+                                <p class="text-[9px] text-slate-400 uppercase font-bold">GST Liability</p>
+                                <p id="valG" class="text-xl font-black">₹0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="swapModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md hidden flex items-center justify-center p-4 z-[100]">
+        <div class="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+            <div class="bg-slate-900 text-white p-6 flex justify-between items-center">
+                <div>
+                    <h2 id="modalHeading" class="text-xl font-black tracking-tight">Modify Component</h2>
+                    <p class="text-[10px] text-slate-400 uppercase font-bold mt-1">Select from available master database</p>
+                </div>
+                <button onclick="closeModal()" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 text-2xl">&times;</button>
+            </div>
+            <div id="modalContent" class="p-6 overflow-y-auto space-y-4 bg-slate-50 flex-1">
+                </div>
+            <div class="p-6 bg-white border-t flex justify-between items-center">
+                <p class="text-[10px] text-slate-400 font-medium italic">* Changes apply immediately to final quote.</p>
+                <button onclick="closeModal()" class="bg-blue-600 text-white px-10 py-3 rounded-xl font-bold uppercase text-xs hover:bg-blue-700 transition-all">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <datalist id="cityList"></datalist>
+
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycbzYbmpf1dOUVJ2JAxr5UVeFCQL6sT6AaHP9N6gguF0Z0qaotsFJEzHa5jQnO39wsKMRnA/exec";
+        
+        // Internal State
+        let masterData = { hotels: [], sights: [] };
+        let selectedRoute = []; 
+        let currentPlan = [];
+
+        /**
+         * INITIALIZATION
+         */
+        async function init() {
+            try {
+                const res = await fetch(API_URL);
+                masterData = await res.json();
+                
+                // Populate Datalist
+                const cities = [...new Set(masterData.hotels.map(h => h.city))];
+                document.getElementById('cityList').innerHTML = cities.map(c => `<option value="${c}">`).join('');
+                
+                // Set Date
+                const now = new Date();
+                document.getElementById('currentDate').innerText = `DATE: ${now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}`;
+                
+                syncPaxLogic();
+                console.log("Trip Store Engine Loaded Successfully.");
+            } catch (err) {
+                console.error("Master Data Fetch Error:", err);
+                alert("Cloud Sync Failed. Check internet connection.");
+            }
+        }
+
+        /**
+         * PAX LOGIC SYNC
+         * Updates all labels and triggers recalculation
+         */
+        function syncPaxLogic() {
+            const pax = Number(document.getElementById('paxCountInput').value) || 1;
+            
+            // Update Control Labels
+            document.getElementById('hotelBudgetLbl').innerText = `Hotel Budget for ${pax} Pax`;
+            document.getElementById('sightBudgetLbl').innerText = `Sightseeing Budget for ${pax} Pax`;
+            
+            // Update Results UI
+            document.getElementById('resPaxCount').innerText = pax;
+            
+            // Rerun Math
+            runOptimizer();
+        }
+
+        function updatePaxHeader() {
+            document.getElementById('resPaxName').innerText = document.getElementById('paxNameInput').value || "---";
+        }
+
+        /**
+         * ROUTE MANAGEMENT
+         */
+        function addCityToRoute() {
+            const city = document.getElementById('cityInput').value.trim();
+            const cin = document.getElementById('checkinInput').value;
+            const cout = document.getElementById('checkoutInput').value;
+            
+            if(!city || !cin || !cout) {
+                alert("Please fill all route fields.");
+                return;
+            }
+
+            const nts = Math.ceil((new Date(cout) - new Date(cin)) / (1000 * 60 * 60 * 24));
+            if(nts <= 0) {
+                alert("Check-out must be after Check-in.");
+                return;
+            }
+
+            selectedRoute.push({ 
+                id: Date.now() + Math.random(), 
+                city, 
+                cin, 
+                cout, 
+                nights: nts 
+            });
+            
+            // Sort by Date
+            selectedRoute.sort((a, b) => new Date(a.cin) - new Date(b.cin));
+            
+            renderRouteSidebar();
+            runOptimizer();
+            
+            // Clear inputs
+            document.getElementById('cityInput').value = "";
+        }
+
+        function renderRouteSidebar() {
+            const container = document.getElementById('routeList');
+            container.innerHTML = selectedRoute.map(r => `
+                <div class="flex justify-between items-center bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                    <div>
+                        <p class="text-[10px] font-black uppercase text-blue-600">${r.city}</p>
+                        <p class="text-[9px] text-slate-400 font-bold">${r.nights} Nights Stay</p>
+                    </div>
+                    <button onclick="removeRoute(${r.id})" class="text-slate-300 hover:text-red-500 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function removeRoute(id) {
+            selectedRoute = selectedRoute.filter(r => r.id !== id);
+            renderRouteSidebar();
+            runOptimizer();
+        }
+
+        /**
+         * CORE OPTIMIZER: Budget Implementation
+         */
+        function runOptimizer() {
+            if(selectedRoute.length === 0) {
+                currentPlan = [];
+                renderTables();
+                return;
+            }
+
+            const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
+            const hTotalBudget = Number(document.getElementById('hotelBudget').value) || 0;
+            const sTotalBudget = Number(document.getElementById('sightBudget').value) || 0;
+
+            // Math implementation as requested
+            // 1. Hotel cap per city (usually flat budget per destination)
+            const hCapPerDest = hTotalBudget / selectedRoute.length;
+
+            // 2. Sightseeing logic: Budget / Pax / City = Limit per person per destination
+            const sCapPerPaxPerDest = (sTotalBudget / paxCount) / selectedRoute.length;
+
+            currentPlan = selectedRoute.map(route => {
+                // Find Best Hotel
+                const cityHotels = masterData.hotels
+                    .filter(h => h.city.toLowerCase() === route.city.toLowerCase())
+                    .sort((a, b) => b.cost - a.cost);
+
+                const hotel = cityHotels.find(h => (h.cost * route.nights) <= hCapPerDest) || cityHotels[cityHotels.length - 1];
+
+                // Find Sights within Per Pax Cap
+                const citySights = masterData.sights
+                    .filter(s => s.city.toLowerCase().includes(route.city.toLowerCase()))
+                    .sort((a, b) => b.price - a.price);
+
+                let chosenSights = [];
+                let runningPerPaxCost = 0;
+
+                citySights.forEach((sight, idx) => {
+                    const price = Number(sight.price) || 0;
+                    if(runningPerPaxCost + price <= sCapPerPaxPerDest) {
+                        chosenSights.push({
+                            ...sight,
+                            price: price,
+                            instanceId: Math.random(),
+                            assignedDay: idx % (route.nights + 1)
+                        });
+                        runningPerPaxCost += price;
+                    }
+                });
+
+                return { ...route, hotel, sights: chosenSights };
+            });
+
+            renderTables();
+        }
+
+        /**
+         * RENDERING ENGINE
+         */
+        function renderTables() {
+            let hHtml = ""; let sHtml = "";
+            const pax = Number(document.getElementById('paxCountInput').value) || 1;
+
+            currentPlan.forEach(dest => {
+                // Hotels
+                hHtml += `
+                    <tr>
+                        <td class="font-bold uppercase text-slate-700">${dest.city}</td>
+                        <td class="text-center">${formatDate(dest.cin)}</td>
+                        <td class="text-center">${formatDate(dest.cout)}</td>
+                        <td class="text-center font-bold text-blue-600">${dest.nights}</td>
+                        <td><b class="uppercase">${dest.hotel?.name || '---'}</b></td>
+                        <td class="text-[9px] italic text-slate-500">${dest.hotel?.type || 'Standard'}</td>
+                        <td class="font-bold text-right price-col">₹${(dest.hotel?.cost * dest.nights || 0).toLocaleString()}</td>
+                        <td class="no-print text-center">
+                            <button onclick="openHotelSwap(${dest.id})" class="text-[10px] font-black text-blue-500 hover:underline">SWAP</button>
+                        </td>
+                    </tr>
+                `;
+
+                // Sights Day-wise
+                for(let d=0; d <= dest.nights; d++) {
+                    const dailyActs = dest.sights.filter(s => s.assignedDay === d);
+                    const dObj = new Date(dest.cin);
+                    dObj.setDate(dObj.getDate() + d);
+
+                    const actList = dailyActs.length > 0 
+                        ? dailyActs.map(s => `
+                            <div class="flex justify-between items-center py-1 border-b border-slate-50 last:border-0">
+                                <span><b class="text-blue-600 mr-2">•</b> ${s.info}</span>
+                                <span class="price-tag font-bold text-slate-400 text-[10px]">₹${(s.price * pax).toLocaleString()}</span>
+                            </div>
+                        `).join('')
+                        : `<span class="text-slate-300 italic">Explore local vicinity or Relax</span>`;
+
+                    sHtml += `
+                        <tr>
+                            <td class="text-center">
+                                <span class="text-[10px] block font-black text-slate-800">DAY ${d+1}</span>
+                                <span class="text-[9px] text-slate-400 font-bold uppercase">${formatDate(dObj)}</span>
+                            </td>
+                            <td class="py-3">${actList}</td>
+                            <td class="text-center font-bold uppercase text-slate-500">${dest.city}</td>
+                            <td class="no-print text-center">
+                                <button onclick="openSightSwap(${dest.id})" class="text-[10px] font-black text-blue-500 hover:underline">EDIT</button>
+                            </td>
+                        </tr>
+                    `;
+                }
+            });
+
+            document.getElementById('hotelTableBody').innerHTML = hHtml || '<tr><td colspan="8" class="text-center py-10 text-slate-300">No destinations added yet.</td></tr>';
+            document.getElementById('sightTableBody').innerHTML = sHtml || '<tr><td colspan="4" class="text-center py-10 text-slate-300">Itinerary will appear here.</td></tr>';
+            
+            // Meta updates
+            document.getElementById('resDest').innerText = [...new Set(currentPlan.map(p => p.city))].join(' → ') || '---';
+            document.getElementById('resDuration').innerText = `${selectedRoute.reduce((sum, r) => sum + r.nights, 0)} NIGHTS`;
+            
+            calculateBudgetInvestment();
+        }
+
+        /**
+         * FINANCIAL CALCULATIONS
+         */
+        function calculateBudgetInvestment() {
+            let hNet = 0; let sNet = 0;
+            const pax = Number(document.getElementById('paxCountInput').value) || 1;
+
+            currentPlan.forEach(p => { 
+                hNet += (p.hotel?.cost || 0) * (p.nights || 0); 
+                sNet += p.sights.reduce((sum, s) => sum + (s.price * pax), 0); 
+            });
+
+            const mPct = Number(document.getElementById('markupInput').value) || 0;
+            const gPct = Number(document.getElementById('gstInput').value) || 0;
+            
+            const netBase = hNet + sNet;
+            const markupVal = netBase * (mPct / 100);
+            const gstVal = markupVal * (gPct / 100);
+            const grandTotal = netBase + markupVal + gstVal;
+
+            // Internal Dashboard
+            document.getElementById('netH').innerText = `₹${hNet.toLocaleString()}`;
+            document.getElementById('labelS').innerText = `Sights Net (x${pax} Pax)`;
+            document.getElementById('netS').innerText = `₹${sNet.toLocaleString()}`;
+            document.getElementById('valM').innerText = `₹${Math.round(markupVal).toLocaleString()}`;
+            document.getElementById('valG').innerText = `₹${Math.round(gstVal).toLocaleString()}`;
+            
+            // Final Quote
+            document.getElementById('resGrandTotal').innerText = `₹${Math.round(grandTotal).toLocaleString('en-IN')}`;
+        }
+
+        /**
+         * MODAL & SWAP LOGIC
+         */
+        function openHotelSwap(routeId) {
+            const dest = currentPlan.find(p => p.id === routeId);
+            const options = masterData.hotels.filter(h => h.city.toLowerCase() === dest.city.toLowerCase());
+            
+            document.getElementById('modalHeading').innerText = `Change Hotel: ${dest.city}`;
+            let html = `<div class="grid grid-cols-1 gap-3">`;
+            
+            options.forEach((h, i) => {
+                html += `
+                    <div onclick="selectHotel(${routeId}, ${i})" class="p-4 bg-white border-2 border-transparent hover:border-blue-500 rounded-2xl cursor-pointer shadow-sm flex justify-between items-center transition-all group">
+                        <div class="flex flex-col">
+                            <span class="text-sm font-black text-slate-800 group-hover:text-blue-600">${h.name}</span>
+                            <span class="text-[10px] text-blue-500 font-bold uppercase tracking-wider">${h.type || 'N/A'}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="block text-xs font-black text-slate-900">₹${h.cost.toLocaleString()}</span>
+                            <span class="text-[9px] text-slate-400 font-bold">PER NIGHT</span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('modalContent').innerHTML = html + "</div>";
+            toggleModal(true);
+        }
+
+        function selectHotel(routeId, index) {
+            const dest = currentPlan.find(p => p.id === routeId);
+            const options = masterData.hotels.filter(h => h.city.toLowerCase() === dest.city.toLowerCase());
+            dest.hotel = options[index];
+            renderTables();
+            closeModal();
+        }
+
+        function openSightSwap(routeId) {
+            const dest = currentPlan.find(p => p.id === routeId);
+            const pax = Number(document.getElementById('paxCountInput').value) || 1;
+            document.getElementById('modalHeading').innerText = `Edit Itinerary: ${dest.city}`;
+            refreshSightModal(dest, pax);
+            toggleModal(true);
+        }
+
+        function refreshSightModal(dest, pax) {
+            const masterSights = masterData.sights.filter(s => s.city.toLowerCase().includes(dest.city.toLowerCase()));
+            let html = `<div class="space-y-6">`;
+            
+            for(let d=0; d <= dest.nights; d++) {
+                const currentActs = dest.sights.filter(s => s.assignedDay === d);
+                html += `
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200">
+                        <h4 class="text-xs font-black text-blue-600 uppercase mb-4 tracking-widest">Day ${d+1} Schedule</h4>
+                        <div class="space-y-2 mb-4">
+                            ${currentActs.map(s => `
+                                <div class="flex justify-between items-center bg-slate-50 px-3 py-2 rounded-lg border border-slate-100 text-[11px]">
+                                    <span class="font-bold text-slate-700">${s.info}</span>
+                                    <button onclick="removeAct(${dest.id}, ${s.instanceId})" class="text-red-400 hover:text-red-600 font-black">×</button>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <select onchange="addAct(${dest.id}, ${d}, this.value)" class="w-full p-2.5 bg-blue-50 border border-blue-100 rounded-xl text-[11px] font-bold text-blue-700 outline-none">
+                            <option value="">+ Add Activity to Day ${d+1}</option>
+                            ${masterSights.map(s => `<option value="${s.info}">${s.info} (₹${(s.price * pax).toLocaleString()})</option>`).join('')}
+                        </select>
+                    </div>
+                `;
+            }
+            document.getElementById('modalContent').innerHTML = html + "</div>";
+        }
+
+        function addAct(rid, day, info) {
+            if(!info) return;
+            const dest = currentPlan.find(p => p.id === rid);
+            const sight = masterData.sights.find(s => s.info === info);
+            dest.sights.push({ ...sight, instanceId: Math.random(), assignedDay: day });
+            renderTables();
+            refreshSightModal(dest, Number(document.getElementById('paxCountInput').value));
+        }
+
+        function removeAct(rid, iid) {
+            const dest = currentPlan.find(p => p.id === rid);
+            dest.sights = dest.sights.filter(s => s.instanceId !== iid);
+            renderTables();
+            refreshSightModal(dest, Number(document.getElementById('paxCountInput').value));
+        }
+
+        /**
+         * HELPERS
+         */
+        function formatDate(d) { 
+            return d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '---'; 
+        }
+
+        function toggleModal(show) { 
+            document.getElementById('swapModal').classList.toggle('hidden', !show); 
+        }
+
+        function closeModal() { toggleModal(false); }
+
+        function downloadPDF() {
+            const el = document.getElementById('pdf-content');
+            const opt = {
+                margin: 0,
+                filename: `Proposal_${document.getElementById('paxNameInput').value || 'TripStore'}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().from(el).set(opt).save();
+        }
+
+        init();
+    </script>
+</body>
+</html>
