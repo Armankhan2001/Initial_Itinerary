@@ -520,34 +520,77 @@
     }
 
     function runOptimizer() {
-        if(selectedRoute.length === 0) { currentPlan = []; renderTables(); return; }
-        const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
-        const hBudgetTotal = Number(document.getElementById('hotelBudget').value) || 0;
-        const sBudgetTotal = Number(document.getElementById('sightBudget').value) || 0;
-        const validCitiesInRoute = selectedRoute.filter(route => masterData.hotels.some(h => h.city.toLowerCase() === route.city.toLowerCase()));
-        const validCount = validCitiesInRoute.length || 1;
-        const hCapPerCity = hBudgetTotal / validCount;
-        const sCapPerCityTotal = sBudgetTotal / validCount;
-        const individualSightCap = sCapPerCityTotal / paxCount;
-
-        currentPlan = selectedRoute.map(route => {
-            const cityHotels = masterData.hotels.filter(h => h.city.toLowerCase() === route.city.toLowerCase());
-            if (cityHotels.length === 0) return { ...route, hotel: null, sights: [] };
-            cityHotels.sort((a, b) => b.cost - a.cost);
-            const bestHotel = cityHotels.find(h => (Number(h.cost) * route.nights) <= hCapPerCity) || cityHotels[cityHotels.length - 1];
-            const citySights = masterData.sights.filter(s => s.city.toLowerCase().includes(route.city.toLowerCase()) && Number(s.price) > 0).sort((a, b) => b.price - a.price);
-            let chosen = []; 
-            let runningSpent = 0;
-            citySights.forEach((s, idx) => {
-                if (runningSpent + Number(s.price) <= individualSightCap) {
-                    chosen.push({ ...s, price: Number(s.price), instanceId: Date.now() + Math.random(), assignedDay: idx % (route.nights + 1) });
-                    runningSpent += Number(s.price);
-                }
-            });
-            return { ...route, hotel: bestHotel, sights: chosen };
-        });
-        renderTables();
+    if (selectedRoute.length === 0) { 
+        currentPlan = []; 
+        renderTables(); 
+        return; 
     }
+
+    const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
+    const hBudgetTotal = Number(document.getElementById('hotelBudget').value) || 0;
+    const sBudgetTotal = Number(document.getElementById('sightBudget').value) || 0;
+
+    // 1. Calculate the actual total number of days (Nights + 1 for each city stop)
+    const totalTripDays = selectedRoute.reduce((sum, route) => sum + (Number(route.nights) + 1), 0);
+    
+    // 2. Strict Daily Allowance: Divide total activity budget by total days and people
+    const dailyAllowancePerPerson = (sBudgetTotal / totalTripDays) / paxCount;
+
+    // Hotel logic stays per city
+    const validCitiesInRoute = selectedRoute.filter(route => 
+        masterData.hotels.some(h => h.city.toLowerCase() === route.city.toLowerCase())
+    );
+    const hCapPerCity = hBudgetTotal / (validCitiesInRoute.length || 1);
+
+    currentPlan = selectedRoute.map(route => {
+        const cityName = route.city.toLowerCase();
+        
+        // --- HOTEL SELECTION ---
+        const cityHotels = masterData.hotels.filter(h => h.city.toLowerCase() === cityName);
+        let bestHotel = null;
+        if (cityHotels.length > 0) {
+            cityHotels.sort((a, b) => b.cost - a.cost); // Premium first
+            bestHotel = cityHotels.find(h => (Number(h.cost) * route.nights) <= hCapPerCity) || cityHotels[cityHotels.length - 1];
+        }
+
+        // --- ACTIVITY SELECTION (The "Best-Fit" Logic) ---
+        const citySights = masterData.sights
+            .filter(s => s.city.toLowerCase().includes(cityName) && Number(s.price) > 0)
+            .sort((a, b) => b.price - a.price); // SORT DESCENDING: Pick best things first
+
+        let chosen = [];
+        let usedSights = new Set();
+        const daysInThisCity = Number(route.nights) + 1;
+
+        // Loop through each day assigned to this city
+        for (let dayIdx = 0; dayIdx < daysInThisCity; dayIdx++) {
+            let daySpent = 0;
+            
+            // For each day, find the MOST expensive activity that is still <= the daily allowance
+            for (let s of citySights) {
+                const sPrice = Number(s.price);
+                if (!usedSights.has(s.info) && sPrice <= dailyAllowancePerPerson) {
+                    chosen.push({ 
+                        ...s, 
+                        price: sPrice, 
+                        instanceId: Date.now() + Math.random(), 
+                        assignedDay: dayIdx 
+                    });
+                    usedSights.add(s.info);
+                    daySpent = sPrice;
+                    
+                    // Break after finding the best activity for this day to ensure 
+                    // budget is saved for subsequent days.
+                    break; 
+                }
+            }
+        }
+
+        return { ...route, hotel: bestHotel, sights: chosen };
+    });
+
+    renderTables();
+}
 
     function renderTables() {
         let hHtml = ""; let sHtml = "";
@@ -610,19 +653,96 @@
         document.getElementById('resGrandTotal').innerText = `₹${grandTotal.toLocaleString('en-IN')}`;
     }
 
+    /* --- INTEGRATED SEARCH & RANGE FILTER LOGIC WITH COUNT --- */
+
     function openHotelSwap(routeId) {
         const item = currentPlan.find(p => p.id === routeId);
-        const options = masterData.hotels.filter(h => h.city.toLowerCase() === item.city.toLowerCase());
-        document.getElementById('modalHeading').innerText = `Select Hotel: ${item.city}`;
-        let html = options.length > 0 ? `<div class="grid grid-cols-1 gap-3">` : `<p class="p-4 text-center text-gray-500">No hotels found.</p>`;
-        options.forEach((h, index) => {
-            html += `<div onclick="selectHotel(${routeId}, ${index}, '${h.city}')" class="p-4 bg-white border rounded-lg cursor-pointer hover:border-blue-400 flex justify-between items-center">
-                <div class="flex flex-col"><span class="text-xs font-black uppercase">${h.name}</span><span class="text-[10px] text-blue-600 italic">${h.type || 'Standard'}</span></div>
-                <div class="text-right"><span class="text-xs font-black">₹${(Number(h.cost)).toLocaleString()}</span></div>
-            </div>`;
-        });
-        document.getElementById('modalContent').innerHTML = html + "</div>";
+        const city = item.city;
+        
+        const options = masterData.hotels.filter(h => h.city.toLowerCase() === city.toLowerCase());
+        const cityMaxPrice = options.length > 0 ? Math.max(...options.map(h => Number(h.cost))) : 100000;
+        const cityMinPrice = options.length > 0 ? Math.min(...options.map(h => Number(h.cost))) : 0;
+
+        document.getElementById('modalHeading').innerText = `Select Hotel: ${city}`;
+
+        // Added a span with ID 'hotelCountBadge' to show the total
+        let controlsHtml = `
+            <div class="p-4 bg-white sticky top-0 border-b space-y-3 z-10 shadow-sm">
+                <input type="text" id="modalSearch" placeholder="Search hotel name..." 
+                    oninput="applyHotelFilters(${routeId}, '${city}')"
+                    class="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs focus:border-blue-500 outline-none transition-all">
+                
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Budget Range (₹)</label>
+                        <span id="hotelCountBadge" class="bg-blue-600 text-white px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm">0 Found</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="flex flex-col">
+                            <span class="text-[8px] font-bold text-slate-400">MIN</span>
+                            <input type="number" id="minPriceInput" value="${cityMinPrice}" 
+                                oninput="applyHotelFilters(${routeId}, '${city}')"
+                                class="w-full p-2 border rounded font-bold text-xs outline-none focus:border-blue-500">
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-[8px] font-bold text-slate-400">MAX</span>
+                            <input type="number" id="maxPriceInput" value="${cityMaxPrice}" 
+                                oninput="applyHotelFilters(${routeId}, '${city}')"
+                                class="w-full p-2 border rounded font-bold text-xs outline-none focus:border-blue-500">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="hotelListContainer" class="p-4 space-y-3"></div>
+        `;
+
+        document.getElementById('modalContent').innerHTML = controlsHtml;
+        
+        applyHotelFilters(routeId, city);
         toggleModal(true);
+    }
+
+    function applyHotelFilters(routeId, city) {
+        const searchTerm = document.getElementById('modalSearch').value.toLowerCase();
+        const minPrice = Number(document.getElementById('minPriceInput').value) || 0;
+        const maxPrice = Number(document.getElementById('maxPriceInput').value) || 999999;
+        
+        const allCityHotels = masterData.hotels.filter(h => h.city.toLowerCase() === city.toLowerCase());
+        
+        const filtered = allCityHotels.filter(h => {
+            const cost = Number(h.cost);
+            const matchesSearch = h.name.toLowerCase().includes(searchTerm);
+            const matchesBudget = cost >= minPrice && cost <= maxPrice;
+            return matchesSearch && matchesBudget;
+        });
+
+        // Update the count badge
+        document.getElementById('hotelCountBadge').innerText = `${filtered.length} Found`;
+
+        let html = "";
+        if (filtered.length > 0) {
+            filtered.forEach((h) => {
+                const originalIndex = allCityHotels.findIndex(orig => orig.name === h.name);
+                
+                html += `
+                    <div onclick="selectHotel(${routeId}, ${originalIndex}, '${h.city}')" 
+                        class="p-4 bg-white border rounded-lg cursor-pointer hover:border-blue-500 hover:shadow-md transition-all flex justify-between items-center group">
+                        <div class="flex flex-col">
+                            <span class="text-xs font-black uppercase group-hover:text-blue-600 transition-colors">${h.name}</span>
+                            <span class="text-[10px] text-slate-400 italic">${h.type || 'Standard'}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs font-black text-slate-700">₹${(Number(h.cost)).toLocaleString()}</span>
+                        </div>
+                    </div>`;
+            });
+        } else {
+            html = `<div class="py-10 text-center">
+                        <p class="text-xs text-slate-400 font-bold italic">No hotels found in this budget range.</p>
+                    </div>`;
+        }
+
+        document.getElementById('hotelListContainer').innerHTML = html;
     }
 
     function selectHotel(routeId, hotelIndex, city) {
@@ -632,56 +752,133 @@
         renderTables();
         closeModal();
     }
+    
+    /* --- UPDATED SIGHTS MANAGEMENT SYSTEM --- */
 
-    function openSightSwap(routeId) {
-        const route = currentPlan.find(p => p.id === routeId);
-        const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
-        document.getElementById('modalHeading').innerText = `Manage Activities: ${route.city}`;
-        renderSightModalContent(route, paxCount);
-        toggleModal(true);
-    }
+function openSightSwap(routeId) {
+    const route = currentPlan.find(p => p.id === routeId);
+    const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
+    document.getElementById('modalHeading').innerText = `Manage Activities: ${route.city}`;
+    
+    // 1. Create the fixed UI for filters
+    renderSightModalWrapper(route, paxCount);
+    // 2. Initial content load
+    filterSightsInModal(route.id);
+    toggleModal(true);
+}
 
-    function renderSightModalContent(route, paxCount) {
-        const citySights = masterData.sights.filter(s => s.city.toLowerCase().includes(route.city.toLowerCase()));
-        let html = `<div class="space-y-6">`;
-        for(let d=0; d <= route.nights; d++) {
-            const dayActs = route.sights.filter(s => s.assignedDay === d);
-            html += `<div class="bg-white border rounded-lg p-3">
-                <h4 class="font-black text-blue-700 text-xs mb-3">DAY ${d+1}</h4>
-                <div class="space-y-2 mb-3">
-                    ${dayActs.map(s => `<div class="flex justify-between items-center bg-blue-50 p-2 rounded text-[10px]">
-                        <span>${s.info}</span>
-                        <button onclick="removeActivity(${route.id}, ${s.instanceId})" class="text-red-500 font-bold">×</button>
-                    </div>`).join('')}
+function renderSightModalWrapper(route, paxCount) {
+    const allCitySights = masterData.sights.filter(s => s.city.toLowerCase().includes(route.city.toLowerCase()));
+    
+    // Auto-calculate range for the city
+    const cityMaxPrice = allCitySights.length > 0 ? Math.max(...allCitySights.map(s => Number(s.price) * paxCount)) : 50000;
+    const cityMinPrice = allCitySights.length > 0 ? Math.min(...allCitySights.map(s => Number(s.price) * paxCount)) : 0;
+
+    let html = `
+    <div class="p-4 bg-white sticky top-0 border-b space-y-3 z-10 shadow-sm">
+        <input type="text" id="sightSearch" placeholder="Search activity..." 
+               oninput="filterSightsInModal(${route.id})"
+               class="w-full p-2.5 border-2 border-slate-100 rounded-xl text-xs focus:border-blue-500 outline-none transition-all">
+        
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+            <div class="flex justify-between items-center mb-2">
+                <label class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Budget (Total for ${paxCount} Pax)</label>
+                <span id="sightCountBadge" class="bg-blue-600 text-white px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm">0 Found</span>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="flex flex-col">
+                    <span class="text-[8px] font-bold text-slate-400 uppercase">Min ₹</span>
+                    <input type="number" id="sightMinPrice" value="${cityMinPrice}" 
+                           oninput="filterSightsInModal(${route.id})"
+                           class="w-full p-2 border rounded font-bold text-xs outline-none focus:border-blue-500">
                 </div>
-                <select onchange="addActivityToDay(${route.id}, ${d}, this.value)" class="w-full text-[10px] p-2 border rounded font-bold">
-                    <option value="">+ Add Activity...</option>
-                    ${citySights.map(s => `<option value="${s.info}">${s.info} (₹${(Number(s.price) * paxCount).toLocaleString()})</option>`).join('')}
-                </select>
-            </div>`;
-        }
-        document.getElementById('modalContent').innerHTML = html + `</div>`;
+                <div class="flex flex-col">
+                    <span class="text-[8px] font-bold text-slate-400 uppercase">Max ₹</span>
+                    <input type="number" id="sightMaxPrice" value="${cityMaxPrice}" 
+                           oninput="filterSightsInModal(${route.id})"
+                           class="w-full p-2 border rounded font-bold text-xs outline-none focus:border-blue-500">
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="daysContainer" class="p-4 space-y-6"></div>`;
+
+    document.getElementById('modalContent').innerHTML = html;
+}
+
+function filterSightsInModal(routeId) {
+    const route = currentPlan.find(p => p.id === routeId);
+    const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
+    
+    // Capture current filter values
+    const searchTerm = document.getElementById('sightSearch')?.value.toLowerCase() || "";
+    const minPrice = Number(document.getElementById('sightMinPrice')?.value) || 0;
+    const maxPrice = Number(document.getElementById('sightMaxPrice')?.value) || 999999;
+
+    const allCitySights = masterData.sights.filter(s => s.city.toLowerCase().includes(route.city.toLowerCase()));
+    
+    // Filter the master list
+    const filtered = allCitySights.filter(s => {
+        const totalPrice = Number(s.price) * paxCount;
+        return s.info.toLowerCase().includes(searchTerm) && 
+               totalPrice >= minPrice && 
+               totalPrice <= maxPrice;
+    });
+
+    // Update the "Activity Count" badge
+    if(document.getElementById('sightCountBadge')) {
+        document.getElementById('sightCountBadge').innerText = `${filtered.length} Found`;
     }
 
-    function addActivityToDay(routeId, day, info) {
-        if(!info) return;
-        const route = currentPlan.find(p => p.id === routeId);
-        const sight = masterData.sights.find(s => s.info === info);
-        if(route && sight) {
-            route.sights.push({ ...sight, price: Number(sight.price), instanceId: Date.now() + Math.random(), assignedDay: day });
-            renderTables();
-            renderSightModalContent(route, Number(document.getElementById('paxCountInput').value));
-        }
+    // Build the Day-wise UI
+    let daysHtml = "";
+    for(let d=0; d <= route.nights; d++) {
+        const dayActs = route.sights.filter(s => s.assignedDay === d);
+        daysHtml += `
+        <div class="bg-white border rounded-lg p-3 shadow-sm">
+            <h4 class="font-black text-blue-700 text-[10px] mb-3 uppercase tracking-tighter">DAY ${d+1}</h4>
+            <div class="space-y-2 mb-3">
+                ${dayActs.map(s => `
+                    <div class="flex justify-between items-center bg-blue-50 p-2 rounded text-[10px] border border-blue-100">
+                        <span class="font-medium truncate mr-2">${s.info}</span>
+                        <button onclick="removeActivity(${route.id}, ${s.instanceId})" class="text-red-500 font-bold hover:text-red-700 transition-colors">×</button>
+                    </div>`).join('')}
+            </div>
+            <select onchange="addActivityToDay(${route.id}, ${d}, this.value)" 
+                    class="w-full text-[10px] p-2 border rounded font-bold bg-slate-50 outline-none focus:border-blue-500 cursor-pointer">
+                <option value="">+ Add Activity...</option>
+                ${filtered.map(s => `<option value="${s.info}">${s.info} (₹${(Number(s.price) * paxCount).toLocaleString()})</option>`).join('')}
+            </select>
+        </div>`;
     }
+    document.getElementById('daysContainer').innerHTML = daysHtml;
+}
 
-    function removeActivity(routeId, instanceId) {
-        const route = currentPlan.find(p => p.id === routeId);
-        route.sights = route.sights.filter(s => s.instanceId !== instanceId);
+function addActivityToDay(routeId, day, info) {
+    if(!info) return;
+    const route = currentPlan.find(p => p.id === routeId);
+    const sight = masterData.sights.find(s => s.info === info);
+    if(route && sight) {
+        route.sights.push({ 
+            ...sight, 
+            price: Number(sight.price), 
+            instanceId: Date.now() + Math.random(), 
+            assignedDay: day 
+        });
         renderTables();
-        renderSightModalContent(route, Number(document.getElementById('paxCountInput').value));
+        // Refresh only the content so the search/filters don't clear
+        filterSightsInModal(routeId);
     }
+}
 
-    function formatDate(d) { return d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '---'; }
+function removeActivity(routeId, instanceId) {
+    const route = currentPlan.find(p => p.id === routeId);
+    route.sights = route.sights.filter(s => s.instanceId !== instanceId);
+    renderTables();
+    filterSightsInModal(routeId);
+}
+
+function formatDate(d) { return d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '---'; }
 
     async function downloadPDF() {
     const element = document.getElementById('pdf-content');
