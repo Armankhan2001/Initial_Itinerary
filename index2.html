@@ -117,7 +117,7 @@
                     <div class="space-y-3">
                         <label class="text-[10px] font-bold text-gray-400 uppercase">Traveler Details</label>
                         <input type="text" id="paxNameInput" oninput="updatePaxHeader()" class="w-full p-2 border rounded text-xs" placeholder="Name of Pax">
-                        <input type="number" id="paxCountInput" oninput="handlePaxChange(true, true)" class="w-full p-2 border rounded text-xs" placeholder="Number of Pax" value="2">
+                        <input type="number" id="paxCountInput" oninput="handlePaxChange()" class="w-full p-2 border rounded text-xs" placeholder="Number of Pax" value="2">
                         
                         <hr class="border-slate-100 my-2">
                         
@@ -162,11 +162,11 @@
                     <div class="grid grid-cols-2 gap-2">
                         <div>
                             <label id="hotelBudgetLabel" class="text-[9px] font-bold text-gray-500 uppercase">Hotel Budget</label>
-                            <input type="number" id="hotelBudget" oninput="runOptimizer(true, true)" class="w-full p-2 border rounded font-bold" value="30000">
+                            <input type="number" id="hotelBudget" oninput="runOptimizer()" class="w-full p-2 border rounded font-bold" value="30000">
                         </div>
                         <div>
                             <label id="sightBudgetLabel" class="text-[9px] font-bold text-gray-500 uppercase">Sight Budget</label>
-                            <input type="number" id="sightBudget" oninput="runOptimizer(true, true)" class="w-full p-2 border rounded font-bold" value="20000">
+                            <input type="number" id="sightBudget" oninput="runOptimizer()" class="w-full p-2 border rounded font-bold" value="20000">
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
@@ -519,10 +519,8 @@
         runOptimizer();
     }
 
-// 3. THE OPTIMIZER (With empty state fix)
-function runOptimizer(reoptimizeHotels = false, reoptimizeSights = false, skipRouteId = null, skipDayIdx = null) {
-    // If no route selected, clear everything
-    if (!selectedRoute || selectedRoute.length === 0) { 
+    function runOptimizer() {
+    if (selectedRoute.length === 0) { 
         currentPlan = []; 
         renderTables(); 
         return; 
@@ -532,108 +530,66 @@ function runOptimizer(reoptimizeHotels = false, reoptimizeSights = false, skipRo
     const hBudgetTotal = Number(document.getElementById('hotelBudget').value) || 0;
     const sBudgetTotal = Number(document.getElementById('sightBudget').value) || 0;
 
-    // A. Calculate Spent Budget (Manual items only)
-    let spentHotelBudget = 0;
-    let systemHotelCitiesCount = 0;
-    let spentSightBudget = 0;
+    // 1. Calculate the actual total number of days (Nights + 1 for each city stop)
+    const totalTripDays = selectedRoute.reduce((sum, route) => sum + (Number(route.nights) + 1), 0);
+    
+    // 2. Strict Daily Allowance: Divide total activity budget by total days and people
+    const dailyAllowancePerPerson = (sBudgetTotal / totalTripDays) / paxCount;
 
-    currentPlan.forEach(route => {
-        if (route.hotel && route.isHotelManual) {
-            spentHotelBudget += (Number(route.hotel.cost) * route.nights);
-        } else {
-            systemHotelCitiesCount++;
-        }
-        if (route.sights) {
-            route.sights.forEach(s => {
-                if (s.isManual) spentSightBudget += (Number(s.price) * paxCount);
-            });
-        }
-    });
+    // Hotel logic stays per city
+    const validCitiesInRoute = selectedRoute.filter(route => 
+        masterData.hotels.some(h => h.city.toLowerCase() === route.city.toLowerCase())
+    );
+    const hCapPerCity = hBudgetTotal / (validCitiesInRoute.length || 1);
 
-    const totalTripDays = selectedRoute.reduce((sum, r) => sum + (Number(r.nights) + 1), 0);
-    const remainingHBudget = Math.max(0, hBudgetTotal - spentHotelBudget);
-    const hCapPerSystemCity = systemHotelCitiesCount > 0 ? remainingHBudget / systemHotelCitiesCount : 0;
-    const remainingSightingBudget = Math.max(0, sBudgetTotal - spentSightBudget);
-    const dailyAllowancePerPerson = (remainingSightingBudget / totalTripDays) / paxCount;
-
-    // B. Rebuild the plan
-    // We iterate over selectedRoute to ensure city order is always correct
-    currentPlan = selectedRoute.map((sourceRoute) => {
-        const cityName = sourceRoute.city.toLowerCase();
+    currentPlan = selectedRoute.map(route => {
+        const cityName = route.city.toLowerCase();
         
-        // IMPORTANT: Find existing data or create a fresh object if it doesn't exist
-        const existingRoute = currentPlan.find(p => p.id === sourceRoute.id) || { 
-            ...sourceRoute, 
-            hotel: null, 
-            sights: [], 
-            isHotelManual: false 
-        };
-
-        // HOTEL LOGIC
-        let finalHotel = existingRoute.hotel;
-        let isHotelManual = existingRoute.isHotelManual;
-
-        if (!isHotelManual && (reoptimizeHotels || !finalHotel)) {
-            const cityHotels = masterData.hotels.filter(h => h.city.toLowerCase() === cityName);
-            if (cityHotels.length > 0) {
-                cityHotels.sort((a, b) => b.cost - a.cost); 
-                finalHotel = cityHotels.find(h => (Number(h.cost) * sourceRoute.nights) <= hCapPerSystemCity) || cityHotels[cityHotels.length - 1];
-            }
+        // --- HOTEL SELECTION ---
+        const cityHotels = masterData.hotels.filter(h => h.city.toLowerCase() === cityName);
+        let bestHotel = null;
+        if (cityHotels.length > 0) {
+            cityHotels.sort((a, b) => b.cost - a.cost); // Premium first
+            bestHotel = cityHotels.find(h => (Number(h.cost) * route.nights) <= hCapPerCity) || cityHotels[cityHotels.length - 1];
         }
 
-        // SIGHT LOGIC
-        let finalSights = [...existingRoute.sights];
+        // --- ACTIVITY SELECTION (The "Best-Fit" Logic) ---
+        const citySights = masterData.sights
+            .filter(s => s.city.toLowerCase().includes(cityName) && Number(s.price) > 0)
+            .sort((a, b) => b.price - a.price); // SORT DESCENDING: Pick best things first
 
-        if (reoptimizeSights || finalSights.length === 0) {
-            const isEntireRouteSkipped = (skipRouteId === sourceRoute.id && skipDayIdx === null);
+        let chosen = [];
+        let usedSights = new Set();
+        const daysInThisCity = Number(route.nights) + 1;
+
+        // Loop through each day assigned to this city
+        for (let dayIdx = 0; dayIdx < daysInThisCity; dayIdx++) {
+            let daySpent = 0;
             
-            if (!isEntireRouteSkipped) {
-                // Keep only manual sights (this is where the "gap" is created after removal)
-                finalSights = finalSights.filter(s => s.isManual);
-                
-                const citySights = masterData.sights
-                    .filter(s => s.city.toLowerCase().includes(cityName) && Number(s.price) > 0)
-                    .sort((a, b) => b.price - a.price);
-
-                let usedInCity = new Set(finalSights.map(s => s.info));
-                let usedPricesInCity = new Set(finalSights.map(s => Number(s.price)));
-                const daysInThisCity = Number(sourceRoute.nights) + 1;
-
-                for (let d = 0; d < daysInThisCity; d++) {
-                    if (sourceRoute.id === skipRouteId && d === skipDayIdx) {
-                        const originalDaySights = existingRoute.sights.filter(s => s.assignedDay === d && !s.isManual);
-                        finalSights = [...finalSights, ...originalDaySights];
-                        continue;
-                    }
-
-                    let daySpent = finalSights.filter(s => s.assignedDay === d).reduce((sum, s) => sum + Number(s.price), 0);
-
-                    for (let s of citySights) {
-                        const sPrice = Number(s.price);
-                        if (!usedInCity.has(s.info) && !usedPricesInCity.has(sPrice) && (daySpent + sPrice) <= dailyAllowancePerPerson) {
-                            finalSights.push({ 
-                                ...s, price: sPrice, instanceId: Date.now() + Math.random(), 
-                                assignedDay: d, isManual: false 
-                            });
-                            usedInCity.add(s.info);
-                            usedPricesInCity.add(sPrice);
-                            daySpent += sPrice;
-                        }
-                    }
+            // For each day, find the MOST expensive activity that is still <= the daily allowance
+            for (let s of citySights) {
+                const sPrice = Number(s.price);
+                if (!usedSights.has(s.info) && sPrice <= dailyAllowancePerPerson) {
+                    chosen.push({ 
+                        ...s, 
+                        price: sPrice, 
+                        instanceId: Date.now() + Math.random(), 
+                        assignedDay: dayIdx 
+                    });
+                    usedSights.add(s.info);
+                    daySpent = sPrice;
+                    
+                    // Break after finding the best activity for this day to ensure 
+                    // budget is saved for subsequent days.
+                    break; 
                 }
             }
         }
 
-        return { 
-            ...sourceRoute, 
-            hotel: finalHotel, 
-            isHotelManual: isHotelManual, 
-            sights: finalSights.sort((a, b) => a.assignedDay - b.assignedDay) 
-        };
+        return { ...route, hotel: bestHotel, sights: chosen };
     });
 
     renderTables();
-    showToast("Plan generated successfully", "success");
 }
 
     function renderTables() {
@@ -789,25 +745,13 @@ function runOptimizer(reoptimizeHotels = false, reoptimizeSights = false, skipRo
         document.getElementById('hotelListContainer').innerHTML = html;
     }
 
-    // Updated selectHotel
-function selectHotel(routeId, hotelIndex, city) {
-    const route = currentPlan.find(p => p.id === routeId);
-    const cityHotels = masterData.hotels.filter(h => h.city.toLowerCase() === city.toLowerCase());
-    
-    // 1. Set the hotel and LOCK it
-    route.hotel = cityHotels[hotelIndex];
-    route.isHotelManual = true; 
-
-    // 2. Refresh the UI immediately
-    renderTables();
-
-    // 3. Offer the option to re-balance, just like activities
-    if (confirm("Hotel updated! Would you like to re-run all other (non-manual) hotels to adjust and balance the total budget?")) {
-        runOptimizer(true, false); // true = re-run hotels, false = keep activities as they are
+    function selectHotel(routeId, hotelIndex, city) {
+        const route = currentPlan.find(p => p.id === routeId);
+        const cityHotels = masterData.hotels.filter(h => h.city.toLowerCase() === city.toLowerCase());
+        route.hotel = cityHotels[hotelIndex];
+        renderTables();
+        closeModal();
     }
-    
-    closeModal();
-}
     
     /* --- UPDATED SIGHTS MANAGEMENT SYSTEM --- */
 
@@ -910,95 +854,28 @@ function filterSightsInModal(routeId) {
     document.getElementById('daysContainer').innerHTML = daysHtml;
 }
 
-// Updated addActivityToDay
 function addActivityToDay(routeId, day, info) {
     if(!info) return;
     const route = currentPlan.find(p => p.id === routeId);
     const sight = masterData.sights.find(s => s.info === info);
-    
     if(route && sight) {
-        // Add the new activity as MANUAL
         route.sights.push({ 
             ...sight, 
             price: Number(sight.price), 
             instanceId: Date.now() + Math.random(), 
-            assignedDay: day,
-            isManual: true 
+            assignedDay: day 
         });
-
         renderTables();
-
-        // New Interaction Logic
-        const choice = prompt(
-            "Activity Added! Choose an optimization mode:\n" +
-            "1. Re-run ALL activities (Balance entire trip)\n" +
-            "2. Re-run only THIS day (Fill this day's budget)\n" +
-            "3. Re-run EXCEPT this day (Keep this day as is, balance others)\n" +
-            "Type 1, 2, or 3 (or cancel to keep as is):"
-        );
-
-        if (choice === "1") {
-            runOptimizer(false, true); 
-        } else if (choice === "2") {
-            // Logic to re-run only this city/day would go here, 
-            // but runOptimizer with skip logic is most efficient
-            runOptimizer(false, true); 
-        } else if (choice === "3") {
-            runOptimizer(false, true, routeId, day);
-        }
-
+        // Refresh only the content so the search/filters don't clear
         filterSightsInModal(routeId);
     }
 }
 
-// --- 1. THE MODAL TRIGGER ---
-// Function to show custom confirmation modal
-function askToReoptimize(message, onConfirm) {
-    const overlay = document.createElement('div');
-    overlay.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000]";
-    overlay.id = "custom-modal-overlay";
-    overlay.innerHTML = `
-        <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full mx-4 animate-in fade-in zoom-in duration-200">
-            <p class="text-gray-800 mb-6 text-center font-medium">${message}</p>
-            <div class="flex space-x-3">
-                <button id="modal-cancel" class="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition">No, Keep</button>
-                <button id="modal-confirm" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">Yes, Re-run</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-
-    overlay.querySelector('#modal-confirm').onclick = () => {
-        onConfirm();
-        overlay.remove();
-    };
-    overlay.querySelector('#modal-cancel').onclick = () => {
-        overlay.remove();
-    };
-}
-// --- UPDATED REMOVE ACTIVITY ---
 function removeActivity(routeId, instanceId) {
-    // 1. Find the city/route in the live plan
     const route = currentPlan.find(p => p.id === routeId);
-    if (!route) return;
-
-    // 2. Actually remove it from the data array immediately
     route.sights = route.sights.filter(s => s.instanceId !== instanceId);
-    
-    // 3. Update the UI right away
     renderTables();
-    if (typeof filterSightsInModal === "function") filterSightsInModal(routeId);
-    
-    // 4. Show your custom toast
-    showToast("Activity removed", "success");
-
-    // 5. Ask to fill the gap
-    setTimeout(() => {
-        askToReoptimize("Activity removed. Re-run others to fill the budget?", () => {
-            // When user clicks 'Yes', we re-run ONLY sights to fill the gap
-            runOptimizer(false, true); 
-        });
-    }, 300);
+    filterSightsInModal(routeId);
 }
 
 function formatDate(d) { return d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '---'; }
