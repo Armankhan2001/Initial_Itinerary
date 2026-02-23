@@ -74,6 +74,8 @@
     .pdf-section { page-break-inside: avoid !important; break-inside: avoid !important; display: block; margin-bottom: 20px; }
     tr { page-break-inside: avoid !important; break-inside: avoid !important; }
     thead { display: table-header-group; }
+
+    
 </style>
 </head>
 <body class="p-2 md:p-8">
@@ -792,6 +794,8 @@ function runOptimizer(reoptimizeHotels = false, reoptimizeSights = false, skipRo
     // Updated selectHotel
 function selectHotel(routeId, hotelIndex, city) {
     const route = currentPlan.find(p => p.id === routeId);
+    if (!route) return;
+
     const cityHotels = masterData.hotels.filter(h => h.city.toLowerCase() === city.toLowerCase());
     
     // 1. Set the hotel and LOCK it
@@ -801,12 +805,19 @@ function selectHotel(routeId, hotelIndex, city) {
     // 2. Refresh the UI immediately
     renderTables();
 
-    // 3. Offer the option to re-balance, just like activities
-    if (confirm("Hotel updated! Would you like to re-run all other (non-manual) hotels to adjust and balance the total budget?")) {
-        runOptimizer(true, false); // true = re-run hotels, false = keep activities as they are
-    }
-    
+    // 3. Show the simple success toast
+    showToast("Hotel selection updated", "success");
+
+    // 4. Close the selection modal
     closeModal();
+
+    // 5. Trigger the custom prompt (replicates your removeActivity logic)
+    setTimeout(() => {
+        askToReoptimize("Hotel updated! Re-run others to adjust the total budget?", () => {
+            // When user clicks 'Yes', we re-run ONLY hotels (true, false)
+            runOptimizer(true, false); 
+        });
+    }, 300);
 }
     
     /* --- UPDATED SIGHTS MANAGEMENT SYSTEM --- */
@@ -917,7 +928,7 @@ function addActivityToDay(routeId, day, info) {
     const sight = masterData.sights.find(s => s.info === info);
     
     if(route && sight) {
-        // Add the new activity as MANUAL
+        // 1. Add activity logic
         route.sights.push({ 
             ...sight, 
             price: Number(sight.price), 
@@ -927,31 +938,64 @@ function addActivityToDay(routeId, day, info) {
         });
 
         renderTables();
+        showToast("Activity added successfully", "success");
 
-        // New Interaction Logic
-        const choice = prompt(
-            "Activity Added! Choose an optimization mode:\n" +
-            "1. Re-run ALL activities (Balance entire trip)\n" +
-            "2. Re-run only THIS day (Fill this day's budget)\n" +
-            "3. Re-run EXCEPT this day (Keep this day as is, balance others)\n" +
-            "Type 1, 2, or 3 (or cancel to keep as is):"
-        );
-
-        if (choice === "1") {
-            runOptimizer(false, true); 
-        } else if (choice === "2") {
-            // Logic to re-run only this city/day would go here, 
-            // but runOptimizer with skip logic is most efficient
-            runOptimizer(false, true); 
-        } else if (choice === "3") {
-            runOptimizer(false, true, routeId, day);
-        }
-
-        filterSightsInModal(routeId);
+        // 2. Trigger Custom Multi-Choice Message
+        setTimeout(() => {
+            askToReoptimizeMulti("Choose an optimization mode to balance your budget:", (choice) => {
+                if (choice === "1") {
+                    runOptimizer(false, true); 
+                } else if (choice === "2") {
+                    runOptimizer(false, true); // Or your specific day logic
+                } else if (choice === "3") {
+                    runOptimizer(false, true, routeId, day);
+                }
+                
+                if (typeof filterSightsInModal === "function") filterSightsInModal(routeId);
+            });
+        }, 300);
     }
 }
 
+
+
 // --- 1. THE MODAL TRIGGER ---
+function askToReoptimizeMulti(message, onChoice) {
+    const overlay = document.createElement('div');
+    overlay.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000]";
+    overlay.id = "custom-modal-multi";
+    overlay.innerHTML = `
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4 animate-in fade-in zoom-in duration-200">
+            <h3 class="text-lg font-bold text-gray-900 mb-2">Activity Added!</h3>
+            <p class="text-gray-600 mb-6 text-sm">${message}</p>
+            <div class="flex flex-col space-y-2">
+                <button data-choice="1" class="choice-btn w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition text-left text-sm">
+                    1. Re-run ALL activities (Balance entire trip)
+                </button>
+                <button data-choice="2" class="choice-btn w-full px-4 py-2 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition text-left text-sm">
+                    2. Re-run only THIS day (Fill gap)
+                </button>
+                <button data-choice="3" class="choice-btn w-full px-4 py-2 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition text-left text-sm">
+                    3. Re-run EXCEPT this day (Keep this day as is)
+                </button>
+                <button id="modal-cancel-multi" class="w-full px-4 py-2 mt-2 bg-gray-100 text-gray-500 rounded hover:bg-gray-200 transition text-sm font-medium">
+                    Cancel (Keep as is)
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Handle the 3 choices
+    overlay.querySelectorAll('.choice-btn').forEach(btn => {
+        btn.onclick = () => {
+            onChoice(btn.getAttribute('data-choice'));
+            overlay.remove();
+        };
+    });
+
+    overlay.querySelector('#modal-cancel-multi').onclick = () => overlay.remove();
+}
 // Function to show custom confirmation modal
 function askToReoptimize(message, onConfirm) {
     const overlay = document.createElement('div');
