@@ -1,37 +1,151 @@
-function doGet() {
+/**
+ * TRIP STORE - FINAL MERGED SERVER SCRIPT
+ * Combines Secure Multi-user Auth with Robust Data Operations
+ */
+
+const ADMIN_MASTER_PASS = "admin789"; 
+
+function doGet(e) {
   try {
-    const data = getMasterData();
-    return ContentService.createTextOutput(JSON.stringify(data))
-      .setMimeType(ContentService.MimeType.JSON);
-  } catch (e) {
-    return ContentService.createTextOutput(JSON.stringify({error: e.toString()}))
-      .setMimeType(ContentService.MimeType.JSON);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const action = e.parameter.action;
+
+    // --- 1. LOGIN LOGIC (from savepass3) ---
+    if (action === "checkLogin") {
+      const user = e.parameter.user;
+      const pass = e.parameter.pass;
+
+      // Master Admin Bypass
+      if (pass === ADMIN_MASTER_PASS) return textResponse("ADMIN");
+
+      const loginSheet = ss.getSheetByName("Logins");
+      if (!loginSheet) return textResponse("INVALID");
+
+      const data = loginSheet.getDataRange().getValues();
+      for (let i = 1; i < data.length; i++) {
+        if (data[i][0] == user && data[i][1] == pass) {
+          const status = data[i][2].toString().toUpperCase();
+          if (status === "APPROVED" || status === "USER" || status === "ADMIN") {
+            return textResponse(status === "ADMIN" ? "ADMIN" : "USER");
+          } else {
+            return textResponse("PENDING_APPROVAL");
+          }
+        }
+      }
+      return textResponse("INVALID");
+    }
+
+    // --- 2. SEARCH ITINERARY (from savepass2 logic) ---
+    if (action === "search") {
+      const name = e.parameter.name.toLowerCase();
+      const sheet = ss.getSheetByName("Saved-Itineraries");
+      if (!sheet) return textResponse("Not Found");
+      
+      const data = sheet.getDataRange().getValues();
+      // Search from bottom to top to get the latest version
+      for (let i = data.length - 1; i >= 1; i--) {
+        if (data[i][1].toString().toLowerCase() === name) {
+          return textResponse(data[i][2]); 
+        }
+      }
+      return textResponse("Not Found");
+    }
+
+    // --- 3. GET ALL SAVED NAMES (for Admin Dropdown) ---
+    if (action === "getAllSaved") {
+      const sheet = ss.getSheetByName("Saved-Itineraries");
+      if (!sheet) return jsonResponse([]);
+      const data = sheet.getDataRange().getValues();
+      const names = [...new Set(data.slice(1).map(row => row[1]))];
+      return jsonResponse(names);
+    }
+
+    // --- 4. DEFAULT: FETCH MASTER DATA (Using savepass2 cleaning logic) ---
+    const masterData = getMasterData(ss);
+    return jsonResponse(masterData);
+
+  } catch (error) {
+    return textResponse("Error: " + error.toString());
   }
 }
 
-function getMasterData() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+function doPost(e) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const data = JSON.parse(e.postData.contents);
+
+    // --- 1. SIGNUP LOGIC ---
+    if (data.action === "signup") {
+      let loginSheet = ss.getSheetByName("Logins");
+      if (!loginSheet) {
+        loginSheet = ss.insertSheet("Logins");
+        loginSheet.appendRow(["Username", "Password", "Status", "Timestamp"]);
+      }
+      
+      const existingUsers = loginSheet.getLastRow() > 1 ? 
+        loginSheet.getRange(1, 1, loginSheet.getLastRow(), 1).getValues().flat() : [];
+      
+      if (existingUsers.includes(data.username)) {
+        return textResponse("User Already Exists");
+      }
+
+      loginSheet.appendRow([data.username, data.password, "PENDING", new Date()]);
+      return textResponse("Signup Successful! Wait for Admin approval.");
+    }
+
+    // --- 2. SAVE ITINERARY LOGIC ---
+    let sheet = ss.getSheetByName("Saved-Itineraries");
+    if (!sheet) {
+      sheet = ss.insertSheet("Saved-Itineraries");
+      sheet.appendRow(["Timestamp", "Pax Name", "JSON Data"]);
+    }
+    
+    sheet.appendRow([
+      new Date(), 
+      data.paxName, 
+      JSON.stringify(data.payload)
+    ]);
+    
+    return textResponse("Saved Successful");
+
+  } catch (error) {
+    return textResponse("Error: " + error.toString());
+  }
+}
+
+/**
+ * Robust Data Retrieval (from savepass2)
+ * Cleans currency symbols and whitespace
+ */
+function getMasterData(ss) {
   const hotelSheet = ss.getSheetByName("Master-Hotels");
   const sightSheet = ss.getSheetByName("Master-Sightseeing");
-
-  if (!hotelSheet || !sightSheet) {
-    throw new Error("Sheet names 'Master-Hotels' or 'Master-Sightseeing' not found.");
-  }
-
-  const hotels = hotelSheet.getDataRange().getValues().slice(1);
-  const sights = sightSheet.getDataRange().getValues().slice(1);
+  
+  if (!hotelSheet || !sightSheet) throw new Error("Master sheets not found.");
+  
+  const hotelRows = hotelSheet.getDataRange().getValues().slice(1);
+  const sightRows = sightSheet.getDataRange().getValues().slice(1);
 
   return {
-    hotels: hotels.filter(r => r[0]).map(r => ({
-      city: String(r[0]).trim(),
-      name: String(r[1]).trim(),
+    hotels: hotelRows.filter(r => r[0]).map(r => ({
+      city: String(r[0]).trim(), 
+      name: String(r[1]).trim(), 
       type: String(r[2]).trim(),
       cost: parseFloat(String(r[3]).replace(/[^\d.]/g, "")) || 0
     })),
-    sights: sights.filter(r => r[0]).map(r => ({
-      info: String(r[0]).trim(),   // Col A: Information
-      city: String(r[1]).trim(),   // Col B: City
-      price: parseFloat(String(r[2]).replace(/[^\d.]/g, "")) || 0 // Col C: Price
+    sights: sightRows.filter(r => r[0]).map(r => ({
+      info: String(r[0]).trim(), 
+      city: String(r[1]).trim(),
+      price: parseFloat(String(r[2]).replace(/[^\d.]/g, "")) || 0
     }))
   };
+}
+
+// --- HELPER FUNCTIONS ---
+function textResponse(text) {
+  return ContentService.createTextOutput(text).setMimeType(ContentService.MimeType.TEXT);
+}
+
+function jsonResponse(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }

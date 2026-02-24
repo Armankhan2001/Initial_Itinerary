@@ -75,37 +75,6 @@
     tr { page-break-inside: avoid !important; break-inside: avoid !important; }
     thead { display: table-header-group; }
 
-    @media print {
-    .price-col, .price-tag, .no-print { display: none !important; }
-    .pdf-input { border: none !important; background: none !important; color: black !important; }
-}
-
-#undo-bar {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #333;
-    color: white;
-    padding: 12px 25px;
-    border-radius: 30px;
-    display: none; /* Default hidden */
-    z-index: 10000;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    align-items: center;
-    gap: 15px;
-}
-#undo-bar button {
-    background: #fbbf24; /* Yellow color */
-    color: #000;
-    border: none;
-    padding: 4px 12px;
-    border-radius: 15px;
-    font-weight: bold;
-    cursor: pointer;
-    font-size: 12px;
-}
-
     
 </style>
 </head>
@@ -201,11 +170,6 @@
                             <label id="sightBudgetLabel" class="text-[9px] font-bold text-gray-500 uppercase">Sight Budget</label>
                             <input type="number" id="sightBudget" oninput="runOptimizer(true, true)" class="w-full p-2 border rounded font-bold" value="20000">
                         </div>
-                        <!-- Transfers -->
-                        <div>
-                            <label class="text-[9px] font-bold text-gray-500 uppercase">Transfer Budget</label>
-                            <input type="number" id="transferBudget" oninput="runOptimizer(true, true)" class="w-full p-2 border rounded font-bold" value="10000">
-                        </div>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <input type="number" id="markupInput" oninput="calculateBudgetInvestment()" class="p-2 border rounded" value="15">
@@ -252,14 +216,9 @@
                         <h3 class="text-[10px] font-black uppercase mb-2 mt-6 text-blue-800 tracking-widest">01. Hotel Stays</h3>
                         <table class="trip-table">
                             <thead><tr class="header-blue">
-                                <th style="width:12%">City</th>
-                                <th style="width:12%">Check In</th>
-                                <th style="width:12%">Check Out</th>
-                                <th style="width:5%">Nts</th>
-                                <th style="width:25%">Hotel Name</th>
-                                <th style="width:15%">Room Type</th>
-                                <th class="price-col" style="width:12%">Total Stay</th>
-                                <th class="no-print" style="width:8%">Swap</th>
+                                <th style="width:12%">City</th><th style="width:12%">Check In</th><th style="width:12%">Check Out</th>
+                                <th style="width:5%">Nts</th><th style="width:25%">Hotel Name</th><th style="width:15%">Room Type</th>
+                                <th class="price-col" style="width:12%">Total Stay</th><th class="no-print" style="width:8%">Swap</th>
                             </tr></thead>
                             <tbody id="hotelTableBody"></tbody>
                         </table>
@@ -271,28 +230,12 @@
                             </tr></thead>
                             <tbody id="sightTableBody"></tbody>
                         </table>
-                        <!-- Train Transfer -->
-                        <h3 class="text-[10px] font-black uppercase mb-2 mt-8 text-blue-800 tracking-widest">03. Transfers / Train</h3>
-                        <table class="trip-table">
-                            <thead>
-                                <tr class="header-blue">
-                                    <th style="width:25%">From (City & Station)</th>
-                                    <th style="width:25%">To (Destination Station)</th>
-                                    <th style="width:20%">Duration</th>
-                                    <th class="price-col" style="width:15%">Avg Price</th>
-                                    <th class="no-print" style="width:15%">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="transferTableBody">
-                                </tbody>
-                        </table>
 
                         <div class="mt-12 pt-6 border-t border-dashed no-print">
                             <h3 class="text-[9px] font-bold text-slate-400 uppercase mb-3 tracking-widest">Profitability Analysis (Internal)</h3>
                             <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                                 <div class="bg-blue-50 p-2 rounded border border-blue-100"><p class="text-[8px] font-bold uppercase text-blue-400">Hotel Net</p><p id="netH" class="font-bold">₹0</p></div>
                                 <div class="bg-blue-50 p-2 rounded border border-blue-100"><p id="labelS" class="text-[8px] font-bold uppercase text-blue-400">Sights Net</p><p id="netS" class="font-bold">₹0</p></div>
-                                <div class="bg-blue-50 p-2 rounded border border-blue-100"><p id="labelT" class="text-[8px] font-bold uppercase text-blue-400">Transfers Net</p><p id="netT" class="font-bold">₹0</p></div>
                                 <div class="bg-slate-50 p-2 rounded border border-slate-200"><p class="text-[8px] font-bold uppercase text-slate-400">Markup</p><p id="valM" class="font-bold">₹0</p></div>
                                 <div class="bg-slate-50 p-2 rounded border border-slate-200"><p class="text-[8px] font-bold uppercase text-slate-400">GST</p><p id="valG" class="font-bold">₹0</p></div>
                             </div>
@@ -316,21 +259,15 @@
         </div>
         <datalist id="cityList"></datalist>
     </div>
-    <!-- Delete & Undo Transfers  -->
-    <div id="undo-bar">
-    <span id="undo-msg">Transfer removed</span>
-    <button onclick="undoDelete()">UNDO</button>
-</div>
     
 
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbxzl_sXc-mLtgtNIQHy9fu5cTPsukQy4hcfTl2s9MdxJcleCLE3dI4obGAFpAbHRg0yRQ/exec"; 
+    const API_URL = "https://script.google.com/macros/s/AKfycbzgyLvJs4gCaZX5mfJ1Hy6T4pSbyYW5s77tTj7rO6QKJsIlAL-m_953Yg8Ahdk9wKDb_g/exec"; 
     let masterData = { hotels: [], sights: [] };
     let selectedRoute = []; 
     let currentPlan = [];
     let isAdmin = false;
     let authMode = 'login'; // Track if user is logging in or signing up
-    let selectedTransfers = []; // Stores manually picked or edited transfers
 
     // --- TOAST SYSTEM ---
     function showToast(msg, type = 'success') {
@@ -497,12 +434,10 @@
                 paxCount: document.getElementById('paxCountInput').value,
                 hotelBudget: document.getElementById('hotelBudget').value,
                 sightBudget: document.getElementById('sightBudget').value,
-                selectedTransfers: selectedTransfers, // Yeh line add karein
                 markup: document.getElementById('markupInput').value,
                 gst: document.getElementById('gstInput').value,
                 selectedRoute: selectedRoute,
-                currentPlan: currentPlan,
-                selectedTransfers: selectedTransfers // Add this to payload so that transfers are also saved
+                currentPlan: currentPlan
             }
         };
 
@@ -518,52 +453,34 @@
     }
 
     async function searchItinerary(query) {
-    if (!query) return;
-    const btn = document.getElementById('btnSearch');
-    btn.innerText = "...";
-    showToast("Searching Cloud...");
-    
-    try {
-        const response = await fetch(`${API_URL}?action=search&name=${encodeURIComponent(query)}`);
-        const text = await response.text();
-
-        if (text === "Not Found") return showToast("No record found", "error");
-
-        const data = JSON.parse(text);
+        if (!query) return;
+        const btn = document.getElementById('btnSearch');
+        btn.innerText = "...";
+        showToast("Searching Cloud...");
         
-        // --- Input Fields Update ---
-        document.getElementById('paxNameInput').value = query;
-        document.getElementById('paxCountInput').value = data.paxCount;
-        document.getElementById('hotelBudget').value = data.hotelBudget;
-        document.getElementById('sightBudget').value = data.sightBudget;
-        
-        // Naya Transfer Budget yahan load hoga
-        if(data.transferBudget) {
-            document.getElementById('transferBudget').value = data.transferBudget;
-        }
+        try {
+            const response = await fetch(`${API_URL}?action=search&name=${encodeURIComponent(query)}`);
+            const text = await response.text();
 
-        document.getElementById('markupInput').value = data.markup;
-        document.getElementById('gstInput').value = data.gst;
+            if (text === "Not Found") return showToast("No record found", "error");
 
-        // --- Global Variables Update ---
-        selectedRoute = data.selectedRoute;
-        currentPlan = data.currentPlan;
-        
-        // Transfers ko fetch karke global variable mein dalein
-        selectedTransfers = data.selectedTransfers || []; 
+            const data = JSON.parse(text);
+            document.getElementById('paxNameInput').value = query;
+            document.getElementById('paxCountInput').value = data.paxCount;
+            document.getElementById('hotelBudget').value = data.hotelBudget;
+            document.getElementById('sightBudget').value = data.sightBudget;
+            document.getElementById('markupInput').value = data.markup;
+            document.getElementById('gstInput').value = data.gst;
+            selectedRoute = data.selectedRoute;
+            currentPlan = data.currentPlan;
 
-        // --- UI Refresh ---
-        updatePaxHeader();
-        renderRouteInputs();
-        renderTables(); // Yeh function hotel, sight aur transfer teeno tables ko refresh karega
-        
-        showToast("Itinerary Loaded!");
-    } catch (e) { 
-        console.error(e);
-        showToast("Error loading itinerary", "error"); 
-    } 
-    finally { btn.innerText = "LOAD"; }
-}
+            updatePaxHeader();
+            renderRouteInputs();
+            renderTables();
+            showToast("Itinerary Loaded!");
+        } catch (e) { showToast("Error loading itinerary", "error"); } 
+        finally { btn.innerText = "LOAD"; }
+    }
 
     // --- EXISTING CORE LOGIC ---
     function handlePaxChange() {
@@ -605,15 +522,11 @@
         runOptimizer();
     }
 
-// --- GLOBAL STATE ---
-// Ensure this is declared at the top of your script
-// let selectedTransfers = []; 
-
-/// --- 1. THE OPTIMIZER ---
+// 3. THE OPTIMIZER (With empty state fix)
 function runOptimizer(reoptimizeHotels = false, reoptimizeSights = false, skipRouteId = null, skipDayIdx = null) {
+    // If no route selected, clear everything
     if (!selectedRoute || selectedRoute.length === 0) { 
         currentPlan = []; 
-        selectedTransfers = [];
         renderTables(); 
         return; 
     }
@@ -621,7 +534,6 @@ function runOptimizer(reoptimizeHotels = false, reoptimizeSights = false, skipRo
     const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
     const hBudgetTotal = Number(document.getElementById('hotelBudget').value) || 0;
     const sBudgetTotal = Number(document.getElementById('sightBudget').value) || 0;
-    const tBudgetTotal = Number(document.getElementById('transferBudget')?.value) || 0;
 
     // A. Calculate Spent Budget (Manual items only)
     let spentHotelBudget = 0;
@@ -644,17 +556,23 @@ function runOptimizer(reoptimizeHotels = false, reoptimizeSights = false, skipRo
     const totalTripDays = selectedRoute.reduce((sum, r) => sum + (Number(r.nights) + 1), 0);
     const remainingHBudget = Math.max(0, hBudgetTotal - spentHotelBudget);
     const hCapPerSystemCity = systemHotelCitiesCount > 0 ? remainingHBudget / systemHotelCitiesCount : 0;
-    
-    // Sightseeing Budget Logic: Group Daily Allowance
-    const dailyGroupAllowance = totalTripDays > 0 ? (Math.max(0, sBudgetTotal - spentSightBudget) / totalTripDays) : 0;
+    const remainingSightingBudget = Math.max(0, sBudgetTotal - spentSightBudget);
+    const dailyAllowancePerPerson = (remainingSightingBudget / totalTripDays) / paxCount;
 
-    // B. Rebuild Hotels & Sights
+    // B. Rebuild the plan
+    // We iterate over selectedRoute to ensure city order is always correct
     currentPlan = selectedRoute.map((sourceRoute) => {
         const cityName = sourceRoute.city.toLowerCase();
+        
+        // IMPORTANT: Find existing data or create a fresh object if it doesn't exist
         const existingRoute = currentPlan.find(p => p.id === sourceRoute.id) || { 
-            ...sourceRoute, hotel: null, sights: [], isHotelManual: false 
+            ...sourceRoute, 
+            hotel: null, 
+            sights: [], 
+            isHotelManual: false 
         };
 
+        // HOTEL LOGIC
         let finalHotel = existingRoute.hotel;
         let isHotelManual = existingRoute.isHotelManual;
 
@@ -666,381 +584,122 @@ function runOptimizer(reoptimizeHotels = false, reoptimizeSights = false, skipRo
             }
         }
 
+        // SIGHT LOGIC
         let finalSights = [...existingRoute.sights];
+
         if (reoptimizeSights || finalSights.length === 0) {
-            finalSights = finalSights.filter(s => s.isManual);
-            const citySights = masterData.sights
-                .filter(s => s.city.toLowerCase().includes(cityName) && Number(s.price) > 0)
-                .sort((a, b) => b.price - a.price);
+            const isEntireRouteSkipped = (skipRouteId === sourceRoute.id && skipDayIdx === null);
+            
+            if (!isEntireRouteSkipped) {
+                // Keep only manual sights (this is where the "gap" is created after removal)
+                finalSights = finalSights.filter(s => s.isManual);
+                
+                const citySights = masterData.sights
+                    .filter(s => s.city.toLowerCase().includes(cityName) && Number(s.price) > 0)
+                    .sort((a, b) => b.price - a.price);
 
-            let usedInCity = new Set(finalSights.map(s => s.info));
-            const daysInThisCity = Number(sourceRoute.nights) + 1;
+                let usedInCity = new Set(finalSights.map(s => s.info));
+                let usedPricesInCity = new Set(finalSights.map(s => Number(s.price)));
+                const daysInThisCity = Number(sourceRoute.nights) + 1;
 
-            for (let d = 0; d < daysInThisCity; d++) {
-                let daySpent = finalSights.filter(s => s.assignedDay === d).reduce((sum, s) => sum + (Number(s.price) * paxCount), 0);
-                for (let s of citySights) {
-                    const sGroupPrice = Number(s.price) * paxCount;
-                    if (!usedInCity.has(s.info) && (daySpent + sGroupPrice) <= dailyGroupAllowance) {
-                        finalSights.push({ ...s, price: Number(s.price), instanceId: Date.now() + Math.random(), assignedDay: d, isManual: false });
-                        usedInCity.add(s.info);
-                        daySpent += sGroupPrice;
+                for (let d = 0; d < daysInThisCity; d++) {
+                    if (sourceRoute.id === skipRouteId && d === skipDayIdx) {
+                        const originalDaySights = existingRoute.sights.filter(s => s.assignedDay === d && !s.isManual);
+                        finalSights = [...finalSights, ...originalDaySights];
+                        continue;
+                    }
+
+                    let daySpent = finalSights.filter(s => s.assignedDay === d).reduce((sum, s) => sum + Number(s.price), 0);
+
+                    for (let s of citySights) {
+                        const sPrice = Number(s.price);
+                        if (!usedInCity.has(s.info) && !usedPricesInCity.has(sPrice) && (daySpent + sPrice) <= dailyAllowancePerPerson) {
+                            finalSights.push({ 
+                                ...s, price: sPrice, instanceId: Date.now() + Math.random(), 
+                                assignedDay: d, isManual: false 
+                            });
+                            usedInCity.add(s.info);
+                            usedPricesInCity.add(sPrice);
+                            daySpent += sPrice;
+                        }
                     }
                 }
             }
         }
-        return { ...sourceRoute, hotel: finalHotel, isHotelManual, sights: finalSights.sort((a, b) => a.assignedDay - b.assignedDay) };
-    });
 
-    // C. Optimize Transfers (Dynamic N+2 Logic)
-    optimizeTransfers(tBudgetTotal, paxCount);
+        return { 
+            ...sourceRoute, 
+            hotel: finalHotel, 
+            isHotelManual: isHotelManual, 
+            sights: finalSights.sort((a, b) => a.assignedDay - b.assignedDay) 
+        };
+    });
 
     renderTables();
     showToast("Plan generated successfully", "success");
 }
 
-// --- 2. TRANSFER ENGINE (N+2 Logic & Auto-Fill) ---
-function optimizeTransfers(tBudgetTotal, paxCount) {
-    // Keep manual edits, rebuild others
-    const manualTransfers = selectedTransfers.filter(t => t.isManual);
-    let newLegs = [];
+    function renderTables() {
+        let hHtml = ""; let sHtml = "";
+        const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
+        document.getElementById('resPaxCount').innerText = paxCount;
 
-    // Count required legs: Arrival + Inter-city legs + Departure
-    const interCityLegCount = currentPlan.length - 1;
-    const totalLegsNeeded = 1 + interCityLegCount + 1; 
-    const groupBudgetPerLeg = totalLegsNeeded > 0 ? (tBudgetTotal / totalLegsNeeded) : 0;
-
-    const findMatch = (from, to) => {
-        let matches = masterData.transfers.filter(t => 
-            t.from.toLowerCase().includes(from.toLowerCase()) && 
-            t.to.toLowerCase().includes(to.toLowerCase())
-        );
-        matches.sort((a, b) => b.avgPrice - a.avgPrice);
-        // Strict budget check: (Price * Pax) <= Leg Budget
-        return matches.find(t => (t.avgPrice * paxCount) <= groupBudgetPerLeg) || null;
-    };
-
-    // 1. ARRIVAL LEG (Airport -> First City)
-    const arrivalKey = `arrival-${currentPlan[0].city}`;
-    let arrivalMatch = manualTransfers.find(t => t.legId === arrivalKey);
-    if (!arrivalMatch) {
-        let dbMatch = findMatch("Airport", currentPlan[0].city);
-        arrivalMatch = {
-            legId: arrivalKey,
-            from: dbMatch ? dbMatch.from : "Airport",
-            to: dbMatch ? dbMatch.to : currentPlan[0].city,
-            duration: dbMatch ? dbMatch.duration : "02:00 Hrs",
-            avgPrice: dbMatch ? dbMatch.avgPrice : 0,
-            isManual: false
-        };
-    }
-    newLegs.push(arrivalMatch);
-
-    // 2. INTER-CITY LEGS
-    for (let i = 0; i < currentPlan.length - 1; i++) {
-        const fromC = currentPlan[i].city;
-        const toC = currentPlan[i+1].city;
-        const interKey = `inter-${fromC}-${toC}`;
-        let interMatch = manualTransfers.find(t => t.legId === interKey);
-        if (!interMatch) {
-            let dbMatch = findMatch(fromC, toC);
-            interMatch = {
-                legId: interKey,
-                from: dbMatch ? dbMatch.from : fromC,
-                to: dbMatch ? dbMatch.to : toC,
-                duration: dbMatch ? dbMatch.duration : "04:00 Hrs",
-                avgPrice: dbMatch ? dbMatch.avgPrice : 0,
-                isManual: false
-            };
-        }
-        newLegs.push(interMatch);
-    }
-
-    // 3. DEPARTURE LEG (Last City -> Airport)
-    const departureKey = `departure-${currentPlan[currentPlan.length-1].city}`;
-    let departureMatch = manualTransfers.find(t => t.legId === departureKey);
-    if (!departureMatch) {
-        let dbMatch = findMatch(currentPlan[currentPlan.length-1].city, "Airport");
-        departureMatch = {
-            legId: departureKey,
-            from: dbMatch ? dbMatch.from : currentPlan[currentPlan.length-1].city,
-            to: dbMatch ? dbMatch.to : "Airport",
-            duration: dbMatch ? dbMatch.duration : "02:00 Hrs",
-            avgPrice: dbMatch ? dbMatch.avgPrice : 0,
-            isManual: false
-        };
-    }
-    newLegs.push(departureMatch);
-
-    selectedTransfers = newLegs;
-}
-
-// --- 3. UPDATED RENDER TABLES (Editable Cells & Delete) ---
-function renderTables() {
-    let hHtml = ""; let sHtml = ""; 
-    const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
-    document.getElementById('resPaxCount').innerText = paxCount;
-
-    // 1. HOTEL RENDER
-    currentPlan.forEach((item) => {
-        const hotelCostTotal = (Number(item.hotel?.cost) || 0) * item.nights;
-        hHtml += `<tr>
-            <td class="font-bold uppercase">${item.city}</td>
-            <td>${formatDate(item.cin)}</td><td>${formatDate(item.cout)}</td>
-            <td class="text-center font-bold">${item.nights}</td>
-            <td><b class="uppercase">${item.hotel?.name || '---'}</b></td>
-            <td><span class="text-blue-600 italic text-[9px]">${item.hotel?.type || '---'}</span></td>
-            <td class="text-center font-bold price-col">₹${hotelCostTotal.toLocaleString()}</td>
-            <td class="no-print text-center"><button onclick="openHotelSwap(${item.id})" class="text-blue-600 underline text-[10px]">SWAP</button></td>
-        </tr>`;
-
-        // SIGHTSEEING RENDER
-        for(let d=0; d <= item.nights; d++) {
-            const activities = item.sights.filter(s => s.assignedDay === d);
-            const currentDayDate = new Date(item.cin);
-            currentDayDate.setDate(currentDayDate.getDate() + d);
-            const actsMarkup = activities.length > 0 
-                ? activities.map(s => `
-                    <div class="flex justify-between py-1 border-b border-slate-50">
-                        <span>• ${s.info}</span>
-                        <span class="price-tag text-slate-400">₹${(s.price * paxCount).toLocaleString()}</span>
-                    </div>`).join('')
-                : `<span class="text-slate-300 italic text-[10px]">Free Day / Transfer</span>`;
-
-            sHtml += `<tr>
-                <td class="text-center font-bold">${formatDate(currentDayDate)}</td>
-                <td class="py-2">${actsMarkup}</td>
-                <td class="font-bold uppercase text-center">${item.city}</td>
-                <td class="no-print text-center"><button onclick="openSightSwap(${item.id})" class="text-blue-600 underline text-[10px]">EDIT</button></td>
+        currentPlan.forEach(item => {
+            const hotelCostTotal = (Number(item.hotel?.cost) || 0) * item.nights;
+            hHtml += `<tr>
+                <td class="font-bold uppercase">${item.city}</td>
+                <td>${formatDate(item.cin)}</td><td>${formatDate(item.cout)}</td>
+                <td class="text-center font-bold">${item.nights}</td>
+                <td><b class="uppercase">${item.hotel?.name || '---'} (or Similar)</b></td>
+                <td><span class="text-blue-600 italic text-[9px]">${item.hotel?.type || '---'}</span></td>
+                <td class="text-center font-bold price-col">₹${hotelCostTotal.toLocaleString()}</td>
+                <td class="no-print text-center"><button onclick="openHotelSwap(${item.id})" class="text-blue-600 text-[10px] font-bold underline">SWAP</button></td>
             </tr>`;
-        }
-    });
 
-    // Transfers Table Body Fix
-const tBody = document.getElementById('transferTableBody');
-if (tBody) {
-    tBody.innerHTML = selectedTransfers.map((t, idx) => `
-        <tr class="${t.isManual ? 'bg-yellow-50' : ''}">
-            <td class="p-2 border">
-                <input type="text" value="${t.from}" data-val="${t.from}" onchange="editTransfer(${idx}, 'from', this.value)" class="w-full bg-transparent outline-none pdf-input">
-            </td>
-            <td class="p-2 border">
-                <input type="text" value="${t.to}" data-val="${t.to}" onchange="editTransfer(${idx}, 'to', this.value)" class="w-full bg-transparent outline-none pdf-input">
-            </td>
-            <td class="p-2 border text-center">
-                <input type="text" value="${t.duration}" data-val="${t.duration}" onchange="editTransfer(${idx}, 'duration', this.value)" class="w-full text-center bg-transparent outline-none pdf-input">
-            </td>
-            <td class="p-2 border font-bold text-right price-col">
-                <div class="flex items-center justify-end">
-                    <span>₹</span>
-                    <input type="number" value="${Math.round(t.avgPrice * paxCount)}" data-val="${Math.round(t.avgPrice * paxCount)}" onchange="editTransfer(${idx}, 'avgPrice', this.value)" class="w-20 text-right bg-transparent outline-none font-bold pdf-input">
-                </div>
-            </td>
-            <td class="p-2 border text-center no-print">
-                <button onclick="deleteTransferLeg(${idx})" class="text-red-500 font-bold mr-2">✕</button>
-                <button onclick="openTransferSwap('${t.legId}')" class="text-blue-600 underline text-[10px] font-bold">SWAP</button>
-            </td>
-        </tr>
-    `).join('');
-}
+            for(let d=0; d <= item.nights; d++) {
+                const activities = item.sights.filter(s => s.assignedDay === d);
+                const currentDayDate = new Date(item.cin);
+                currentDayDate.setDate(currentDayDate.getDate() + d);
+                const actsMarkup = activities.length > 0 
+                    ? activities.map(s => `<div class="flex justify-between border-b border-slate-100 py-1"><span>• ${s.info}</span><span class="price-tag text-slate-400">₹${(Number(s.price) * paxCount).toLocaleString()}</span></div>`).join('')
+                    : `<span class="text-slate-300 italic text-[10px]">Free Day / Transfer</span>`;
 
-    // 2. TRANSFER RENDER (With Input Fix for PDF)
-    // const tBody = document.getElementById('transferTableBody');
-    // if (tBody) {
-    //     tBody.innerHTML = selectedTransfers.map((t, idx) => `
-    //         <tr class="${t.isManual ? 'bg-yellow-50' : ''}">
-    //             <td class="p-2 border">
-    //                 <span class="print-text">${t.from}</span>
-    //                 <input type="text" value="${t.from}" onchange="editTransfer(${idx}, 'from', this.value)" class="w-full bg-transparent outline-none no-print">
-    //             </td>
-    //             <td class="p-2 border">
-    //                 <span class="print-text">${t.to}</span>
-    //                 <input type="text" value="${t.to}" onchange="editTransfer(${idx}, 'to', this.value)" class="w-full bg-transparent outline-none no-print">
-    //             </td>
-    //             <td class="p-2 border text-center">
-    //                 <span class="print-text">${t.duration}</span>
-    //                 <input type="text" value="${t.duration}" onchange="editTransfer(${idx}, 'duration', this.value)" class="w-full text-center bg-transparent outline-none no-print">
-    //             </td>
-    //             <td class="p-2 border font-bold text-right price-col">
-    //                 <span class="print-text">₹${(t.avgPrice * paxCount).toLocaleString()}</span>
-    //                 <div class="no-print">
-    //                     ₹<input type="number" value="${Math.round(t.avgPrice * paxCount)}" onchange="editTransfer(${idx}, 'avgPrice', this.value)" class="w-20 text-right bg-transparent outline-none font-bold">
-    //                 </div>
-    //             </td>
-    //             <td class="p-2 border text-center no-print space-x-2">
-    //                 <button onclick="deleteTransferLeg(${idx})" class="text-red-500 font-bold">✕</button>
-    //                 <button onclick="openTransferSwap('${t.legId}')" class="text-blue-600 underline text-[10px]">SWAP</button>
-    //             </td>
-    //         </tr>
-    //     `).join('');
-    // }
+                sHtml += `<tr>
+                    <td class="text-center font-bold">${formatDate(currentDayDate)}</td>
+                    <td class="py-2">${actsMarkup}</td>
+                    <td class="font-bold uppercase text-center">${item.city}</td>
+                    <td class="no-print text-center"><button onclick="openSightSwap(${item.id})" class="text-blue-600 text-[10px] font-bold underline">EDIT</button></td>
+                </tr>`;
+            }
+        });
 
-    // 3. UPDATE DESTINATION & DURATION
-    document.getElementById('hotelTableBody').innerHTML = hHtml;
-    document.getElementById('sightTableBody').innerHTML = sHtml;
-    
-    // UI Updates
-    const uniqueCities = [...new Set(currentPlan.map(p => p.city.toUpperCase()))];
-    document.getElementById('resDest').innerText = uniqueCities.join(' - ') || '---';
-    
-    const totalNights = currentPlan.reduce((s, r) => s + Number(r.nights), 0);
-    document.getElementById('resDuration').innerText = `${totalNights} NIGHTS`;
-    
-    calculateBudgetInvestment();
-}
-
-// --- 1. TRANSFER SEARCH & FILTER LOGIC ---
-// Yeh function Error fix karega (ReferenceError)
-function applyTransferFilters() {
-    const queryInput = document.getElementById('transferSearch');
-    const sortInput = document.getElementById('transferSort');
-    const container = document.getElementById('transferListContainer');
-    
-    if (!queryInput || !container) return;
-
-    const query = queryInput.value.toLowerCase();
-    const sort = sortInput.value;
-    
-    let filtered = masterData.transfers.filter(t => 
-        t.from.toLowerCase().includes(query) || t.to.toLowerCase().includes(query)
-    );
-
-    filtered.sort((a,b) => sort === "low" ? a.avgPrice - b.avgPrice : b.avgPrice - a.avgPrice);
-
-    container.innerHTML = filtered.map(t => `
-        <div class="flex justify-between items-center p-3 border rounded-xl hover:bg-blue-50 cursor-pointer mb-2" 
-             onclick="selectManualTransfer('${t.from}', '${t.to}', ${t.avgPrice}, '${t.duration}')">
-            <div>
-                <p class="text-xs font-bold">${t.from} ➔ ${t.to}</p>
-                <p class="text-[10px] text-slate-500">${t.duration || 'N/A'}</p>
-            </div>
-            <p class="font-bold text-blue-600">₹${t.avgPrice.toLocaleString()}</p>
-        </div>
-    `).join('');
-}
-
-// --- 2. MODAL & SELECTION ---
-function openTransferSwap(legId) {
-    window.activeLegId = legId; 
-    
-    const modalHeading = document.getElementById('modalHeading');
-    const modalContent = document.getElementById('modalContent');
-
-    if (!modalHeading || !modalContent) return;
-
-    modalHeading.innerText = `Select Transfer for Connection`;
-    modalContent.innerHTML = `
-        <div class="p-4 bg-white sticky top-0 border-b space-y-3 z-10">
-            <input type="text" id="transferSearch" placeholder="Search City, Airport or Type..." 
-                oninput="applyTransferFilters()" class="w-full p-2 border rounded-xl text-xs">
-            <div class="flex justify-between items-center text-[10px]">
-                <span class="font-bold text-slate-500 uppercase">Sort By Price:</span>
-                <select id="transferSort" onchange="applyTransferFilters()" class="border rounded p-1">
-                    <option value="low">Low to High</option>
-                    <option value="high">High to Low</option>
-                </select>
-            </div>
-        </div>
-        <div id="transferListContainer" class="p-4 overflow-y-auto max-h-[400px]"></div>
-    `;
-    
-    toggleModal(true);
-    // Timeout isliye taaki HTML render hone ke baad filter chale
-    setTimeout(applyTransferFilters, 10); 
-}
-
-function selectManualTransfer(from, to, price, duration) {
-    const idx = selectedTransfers.findIndex(t => t.legId === window.activeLegId);
-    if (idx !== -1) {
-        selectedTransfers[idx] = {
-            ...selectedTransfers[idx],
-            from, to, avgPrice: price, duration,
-            isManual: true
-        };
+        document.getElementById('hotelTableBody').innerHTML = hHtml;
+        document.getElementById('sightTableBody').innerHTML = sHtml;
+        document.getElementById('resDest').innerText = [...new Set(currentPlan.map(p => p.city))].join(' - ') || '---';
+        document.getElementById('resDuration').innerText = `${selectedRoute.reduce((s, r) => s + r.nights, 0)} NIGHTS`;
+        calculateBudgetInvestment();
     }
-    toggleModal(false);
-    renderTables();
-}
 
-// --- 3. HELPER EDITS ---
-function editTransfer(index, field, value) {
-    const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
-    if (field === 'avgPrice') {
-        selectedTransfers[index].avgPrice = Number(value) / paxCount;
-    } else {
-        selectedTransfers[index][field] = value;
+    function calculateBudgetInvestment() {
+        let hNet = 0; let sNet = 0;
+        const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
+        currentPlan.forEach(p => { 
+            hNet += (Number(p.hotel?.cost) || 0) * (Number(p.nights) || 0); 
+            sNet += p.sights.reduce((sum, s) => sum + (Number(s.price) * paxCount), 0); 
+        });
+        const mPct = Number(document.getElementById('markupInput').value) || 0;
+        const gPct = Number(document.getElementById('gstInput').value) || 0;
+        const netTotal = hNet + sNet;
+        const markupValue = netTotal * (mPct / 100);
+        const gstValue = markupValue * (gPct / 100);
+        document.getElementById('netH').innerText = `₹${hNet.toLocaleString()}`;
+        document.getElementById('netS').innerText = `₹${sNet.toLocaleString()}`;
+        document.getElementById('valM').innerText = `₹${Math.round(markupValue).toLocaleString()}`;
+        document.getElementById('valG').innerText = `₹${Math.round(gstValue).toLocaleString()}`;
+        const grandTotal = Math.round(netTotal + markupValue + gstValue);
+        document.getElementById('resGrandTotal').innerText = `₹${grandTotal.toLocaleString('en-IN')}`;
     }
-    selectedTransfers[index].isManual = true;
-    calculateBudgetInvestment();
-}
 
-let lastDeletedTransfer = null;
-let lastDeletedIndex = null;
-let undoTimer = null;
-
-function deleteTransferLeg(index) {
-    // 1. Data store karein
-    lastDeletedTransfer = selectedTransfers[index];
-    lastDeletedIndex = index;
-
-    // 2. Row delete karein
-    selectedTransfers.splice(index, 1);
-    renderTables();
-
-    // 3. Undo Bar dikhayein
-    const bar = document.getElementById('undo-bar');
-    bar.style.display = 'flex';
-    
-    // 4. 5 seconds baad bar hide kar dein
-    clearTimeout(undoTimer);
-    undoTimer = setTimeout(() => {
-        bar.style.display = 'none';
-        lastDeletedTransfer = null; // Memory clear
-    }, 5000); 
-}
-
-function undoDelete() {
-    if (lastDeletedTransfer) {
-        // Wapas usi index par insert karein
-        selectedTransfers.splice(lastDeletedIndex, 0, lastDeletedTransfer);
-        renderTables();
-        
-        // Bar hide karein
-        document.getElementById('undo-bar').style.display = 'none';
-        lastDeletedTransfer = null;
-        showToast("Restored successfully!", "success");
-    }
-}
-
-
-// --- 5. CALCULATE BUDGET (Profitability) ---
-function calculateBudgetInvestment() {
-    let hNet = 0; let sNet = 0; 
-    const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
-
-    currentPlan.forEach(p => { 
-        hNet += (Number(p.hotel?.cost) || 0) * (Number(p.nights) || 0); 
-        sNet += p.sights.reduce((sum, s) => sum + (Number(s.price) * paxCount), 0); 
-    });
-
-    const tNet = selectedTransfers.reduce((sum, t) => sum + (Number(t.avgPrice) * paxCount), 0);
-
-    const mPct = Number(document.getElementById('markupInput').value) || 0;
-    const gPct = Number(document.getElementById('gstInput').value) || 0;
-
-    const netTotal = hNet + sNet + tNet; 
-    const markupValue = netTotal * (mPct / 100);
-    const gstValue = (netTotal + markupValue) * (gPct / 100);
-
-    if(document.getElementById('netH')) document.getElementById('netH').innerText = `₹${hNet.toLocaleString()}`;
-    if(document.getElementById('netS')) document.getElementById('netS').innerText = `₹${sNet.toLocaleString()}`;
-    if(document.getElementById('netT')) document.getElementById('netT').innerText = `₹${tNet.toLocaleString()}`;
-
-    document.getElementById('valM').innerText = `₹${Math.round(markupValue).toLocaleString()}`;
-    document.getElementById('valG').innerText = `₹${Math.round(gstValue).toLocaleString()}`;
-    
-    const grandTotal = Math.round(netTotal + markupValue + gstValue);
-    document.getElementById('resGrandTotal').innerText = `₹${grandTotal.toLocaleString('en-IN')}`;
-}
     /* --- INTEGRATED SEARCH & RANGE FILTER LOGIC WITH COUNT --- */
 
     function openHotelSwap(routeId) {
@@ -1393,44 +1052,45 @@ function formatDate(d) { return d ? new Date(d).toLocaleDateString('en-GB', { da
     const element = document.getElementById('pdf-content');
     const paxName = document.getElementById('paxNameInput').value || 'Traveler';
     
+    // Validate element exists
+    if (!element) {
+        showToast("Error: PDF content not found", "error");
+        return;
+    }
+
     showToast("Generating High-Res PDF...");
 
     try {
+        // 1. Setup Capture Options
         const canvas = await html2canvas(element, {
-            scale: 2,
+            scale: 2, // 2 is plenty for high res without crashing browser
             useCORS: true,
             allowTaint: true,
             backgroundColor: "#ffffff",
-            // YEAH LOGIC INPUTS KO PDF MEIN VISIBLE BANAYEGA
-            onclone: (clonedDoc) => {
-                const inputs = clonedDoc.querySelectorAll('.pdf-input');
-                inputs.forEach(input => {
-                    const parent = input.parentElement;
-                    const val = input.value || input.getAttribute('data-val');
-                    // Input ko hide karke uski jagah plain text dalna sirf PDF ke liye
-                    const textNode = clonedDoc.createElement('span');
-                    textNode.innerText = val;
-                    textNode.style.fontSize = "12px";
-                    textNode.style.fontWeight = input.classList.contains('font-bold') ? 'bold' : 'normal';
-                    
-                    input.style.display = 'none';
-                    parent.appendChild(textNode);
-                });
-            }
+            scrollY: -window.scrollY // Fixes offset issues if user scrolled down
         });
 
+        // 2. Prepare PDF Settings
         const { jsPDF } = window.jspdf;
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
-        const pdfWidth = 210;
+        
+        // Calculate dimensions in mm
+        const pdfWidth = 210; // A4 Width
         const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
+        // 3. Create PDF (p = portrait, mm = millimeters)
+        // We use the calculated height to ensure NO PAGE BREAKS
         const pdf = new jsPDF('p', 'mm', [pdfWidth, pdfHeight]);
+        
         pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+        
+        // 4. Trigger Download
         pdf.save(`TripStore_${paxName.replace(/\s+/g, '_')}.pdf`);
         
         showToast("PDF Downloaded!");
     } catch (error) {
         console.error("PDF Error:", error);
+        showToast("PDF Generation Failed", "error");
     }
 }
 
