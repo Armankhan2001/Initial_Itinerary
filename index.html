@@ -142,9 +142,16 @@
             <div class="lg:col-span-4 space-y-4 no-print">
                 
                 <div class="glass p-5">
-                    <div class="flex justify-between items-center mb-6">
+                    <div class="flex justify-between items-start mb-6">
                         <img src="images/tripstorelogo.png" alt="TRIP STORE" class="h-10" onerror="this.outerHTML='<h1 class=\'text-2xl font-black text-blue-600 italic\'>TRIP STORE</h1>'">
-                        <span id="roleBadge" class="px-3 py-1 bg-slate-100 text-[9px] font-bold rounded-full uppercase text-slate-500">User Mode</span>
+                        
+                        <div class="flex flex-col items-end gap-2">
+                            <span id="roleBadge" class="px-3 py-1 bg-slate-100 text-[9px] font-bold rounded-full uppercase text-slate-500">User Mode</span>
+                            
+                            <button onclick="handleLogout()" class="text-[9px] font-bold text-red-500 hover:text-red-700 border border-red-100 px-2 py-1 rounded bg-red-50 transition-all uppercase">
+                                Logout ⎋
+                            </button>
+                        </div>
                     </div>
                     
                     <div class="space-y-3">
@@ -272,10 +279,11 @@
                             <tbody id="sightTableBody"></tbody>
                         </table>
                         <!-- Train Transfer -->
-                        <h3 class="text-[10px] font-black uppercase mb-2 mt-8 text-blue-800 tracking-widest">03. Transfers / Train</h3>
+                        <h3 class="text-[10px] font-black uppercase mb-2 mt-8 text-blue-800 tracking-widest">03. Transfers / CAR</h3>
                         <table class="trip-table">
                             <thead>
                                 <tr class="header-blue">
+                                    <th style="width:10%">Date</th>
                                     <th style="width:25%">From (City & Station)</th>
                                     <th style="width:25%">To (Destination Station)</th>
                                     <th style="width:20%">Duration</th>
@@ -286,6 +294,28 @@
                             <tbody id="transferTableBody">
                                 </tbody>
                         </table>
+                        <!-- 04 Bus Ferry and Train Transfers -->
+                         <h3 class="text-[10px] font-black uppercase mb-2 mt-8 text-blue-800 tracking-widest">04. Train / Ferry / Bus</h3>
+                        <table class="trip-table">
+                            <thead>
+                                <tr class="header-blue">
+                                    <th style="width:10%">Date</th>
+                                    <th style="width:20%">Mode</th>
+                                    <th style="width:25%">Route (From - To)</th>
+                                    <th style="width:25%">Schedule/Notes</th>
+                                    <th class="price-col" style="width:15%">Estimated Price</th>
+                                    <th class="no-print" style="width:15%">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ferryBusTableBody">
+                                </tbody>
+                        </table>
+
+                        <!-- <div class="no-print mb-8">
+                            <button onclick="openIntercitySwap()" class="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg text-[10px] font-bold border border-blue-200 hover:bg-blue-200 transition-all">
+                                + SWAP FERRY / BUS / OTHER
+                            </button>
+                        </div> -->
 
                         <div class="mt-12 pt-6 border-t border-dashed no-print">
                             <h3 class="text-[9px] font-bold text-slate-400 uppercase mb-3 tracking-widest">Profitability Analysis (Internal)</h3>
@@ -324,13 +354,14 @@
     
 
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbxzl_sXc-mLtgtNIQHy9fu5cTPsukQy4hcfTl2s9MdxJcleCLE3dI4obGAFpAbHRg0yRQ/exec"; 
+    const API_URL = "https://script.google.com/macros/s/AKfycbzvo9kdgnoTOhs1bUEvlVhY0TE2YkVuHzLBtIrv5_YuR0nMIgIZrGzvCjhUiT4TcyluVA/exec"; 
     let masterData = { hotels: [], sights: [] };
     let selectedRoute = []; 
     let currentPlan = [];
     let isAdmin = false;
     let authMode = 'login'; // Track if user is logging in or signing up
     let selectedTransfers = []; // Stores manually picked or edited transfers
+    let selectedIntercity = []; // Stores manually picked or edited intercity options
 
     // --- TOAST SYSTEM ---
     function showToast(msg, type = 'success') {
@@ -367,43 +398,46 @@
     }
 
     // --- LOGIN LOGIC ---
-    async function checkLogin() {
-        const user = document.getElementById('userInput').value.trim();
-        const pass = document.getElementById('passInput').value.trim();
-        const loginBtn = document.getElementById('authBtn');
-        const errorMsg = document.getElementById('loginError');
-        
-        if(!user || !pass) return showToast("Enter credentials", "error");
+    // --- LOGIN LOGIC (UPDATED) ---
+async function checkLogin() {
+    const user = document.getElementById('userInput').value.trim();
+    const pass = document.getElementById('passInput').value.trim();
+    const loginBtn = document.getElementById('authBtn');
+    const errorMsg = document.getElementById('loginError');
+    
+    if(!user || !pass) return showToast("Enter credentials", "error");
 
-        loginBtn.innerText = "VERIFYING...";
-        errorMsg.classList.add('hidden');
+    loginBtn.innerText = "VERIFYING...";
+    errorMsg.classList.add('hidden');
 
-        try {
-            // New request includes 'user' parameter
-            const res = await fetch(`${API_URL}?action=checkLogin&user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}`);
-            const status = await res.text();
+    try {
+        const res = await fetch(`${API_URL}?action=checkLogin&user=${encodeURIComponent(user)}&pass=${encodeURIComponent(pass)}`);
+        const status = await res.text();
 
-            if (status === "ADMIN") {
-                isAdmin = true;
-                launchApp("ADMIN MODE");
-            } else if (status === "USER") {
-                isAdmin = false;
-                launchApp("USER MODE");
-            } else if (status === "PENDING_APPROVAL") {
-                errorMsg.innerText = "⏳ Account pending admin approval";
-                errorMsg.classList.remove('hidden');
-            } else {
-                errorMsg.innerText = "❌ Invalid Credentials";
-                errorMsg.classList.remove('hidden');
-            }
-        } catch (e) {
-            showToast("Connection Error", "error");
-        } finally {
-            if(document.getElementById('main-wrapper').style.display !== 'block') {
-                loginBtn.innerText = "Unlock System";
-            }
+        if (status === "ADMIN" || status === "USER") {
+            // Save Session to LocalStorage
+            const sessionData = {
+                isLoggedIn: true,
+                isAdmin: (status === "ADMIN"),
+                modeText: status === "ADMIN" ? "ADMIN MODE" : "USER MODE"
+            };
+            localStorage.setItem("tripstore_session", JSON.stringify(sessionData));
+            
+            isAdmin = sessionData.isAdmin;
+            launchApp(sessionData.modeText);
+        } else if (status === "PENDING_APPROVAL") {
+            errorMsg.innerText = "⏳ Account pending admin approval";
+            errorMsg.classList.remove('hidden');
+        } else {
+            errorMsg.innerText = "❌ Invalid Credentials";
+            errorMsg.classList.remove('hidden');
         }
+    } catch (e) {
+        showToast("Connection Error", "error");
+    } finally {
+        loginBtn.innerText = "Unlock System";
     }
+}
 
     // --- SIGNUP LOGIC ---
     async function handleSignup() {
@@ -441,10 +475,12 @@
         }
     }
 
+    // --- LAUNCH APP (UPDATED) ---
     function launchApp(modeText) {
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('main-wrapper').style.display = 'block';
         document.getElementById('roleBadge').innerText = modeText;
+        
         if(isAdmin) {
             document.getElementById('adminPanel').classList.remove('hidden');
             refreshAdminList();
@@ -452,6 +488,17 @@
         init();
         showToast(`System Unlocked: ${modeText}`);
     }
+
+    function handleLogout() {
+    // 1. Browser ki memory se session delete karein
+    localStorage.removeItem("tripstore_session");
+    
+    // 2. Page ko reload karein taaki user wapas login screen par chala jaye
+    showToast("Logging out...", "error");
+    setTimeout(() => {
+        location.reload();
+    }, 1000);
+}
 
     // --- ADMIN PANEL LOGIC ---
     async function refreshAdminList() {
@@ -502,7 +549,8 @@
                 gst: document.getElementById('gstInput').value,
                 selectedRoute: selectedRoute,
                 currentPlan: currentPlan,
-                selectedTransfers: selectedTransfers // Add this to payload so that transfers are also saved
+                selectedTransfers: selectedTransfers, // Add this to payload so that transfers are also saved
+                selectedIntercity: selectedIntercity // --- ADDED THIS LINE ---
             }
         };
 
@@ -537,7 +585,6 @@
         document.getElementById('hotelBudget').value = data.hotelBudget;
         document.getElementById('sightBudget').value = data.sightBudget;
         
-        // Naya Transfer Budget yahan load hoga
         if(data.transferBudget) {
             document.getElementById('transferBudget').value = data.transferBudget;
         }
@@ -546,23 +593,25 @@
         document.getElementById('gstInput').value = data.gst;
 
         // --- Global Variables Update ---
-        selectedRoute = data.selectedRoute;
-        currentPlan = data.currentPlan;
-        
-        // Transfers ko fetch karke global variable mein dalein
+        selectedRoute = data.selectedRoute || [];
+        currentPlan = data.currentPlan || [];
         selectedTransfers = data.selectedTransfers || []; 
+        selectedIntercity = data.selectedIntercity || []; // --- ADDED THIS LINE ---
 
         // --- UI Refresh ---
         updatePaxHeader();
         renderRouteInputs();
-        renderTables(); // Yeh function hotel, sight aur transfer teeno tables ko refresh karega
+        
+        // Important: renderTables handles Hotel, Sights, Transfers, AND Intercity
+        renderTables(); 
         
         showToast("Itinerary Loaded!");
     } catch (e) { 
         console.error(e);
         showToast("Error loading itinerary", "error"); 
-    } 
-    finally { btn.innerText = "LOAD"; }
+    } finally { 
+        btn.innerText = "LOAD"; 
+    }
 }
 
     // --- EXISTING CORE LOGIC ---
@@ -611,9 +660,11 @@
 
 /// --- 1. THE OPTIMIZER ---
 function runOptimizer(reoptimizeHotels = false, reoptimizeSights = false, skipRouteId = null, skipDayIdx = null) {
+    // 1. Reset everything if no route exists
     if (!selectedRoute || selectedRoute.length === 0) { 
         currentPlan = []; 
         selectedTransfers = [];
+        selectedIntercity = []; // FIX: Reset Section 04 as well
         renderTables(); 
         return; 
     }
@@ -634,7 +685,8 @@ function runOptimizer(reoptimizeHotels = false, reoptimizeSights = false, skipRo
         } else {
             systemHotelCitiesCount++;
         }
-        if (route.sights) {
+        // Ensure sights exists before looping
+        if (route.sights && Array.isArray(route.sights)) {
             route.sights.forEach(s => {
                 if (s.isManual) spentSightBudget += (Number(s.price) * paxCount);
             });
@@ -645,7 +697,6 @@ function runOptimizer(reoptimizeHotels = false, reoptimizeSights = false, skipRo
     const remainingHBudget = Math.max(0, hBudgetTotal - spentHotelBudget);
     const hCapPerSystemCity = systemHotelCitiesCount > 0 ? remainingHBudget / systemHotelCitiesCount : 0;
     
-    // Sightseeing Budget Logic: Group Daily Allowance
     const dailyGroupAllowance = totalTripDays > 0 ? (Math.max(0, sBudgetTotal - spentSightBudget) / totalTripDays) : 0;
 
     // B. Rebuild Hotels & Sights
@@ -666,7 +717,7 @@ function runOptimizer(reoptimizeHotels = false, reoptimizeSights = false, skipRo
             }
         }
 
-        let finalSights = [...existingRoute.sights];
+        let finalSights = [...(existingRoute.sights || [])];
         if (reoptimizeSights || finalSights.length === 0) {
             finalSights = finalSights.filter(s => s.isManual);
             const citySights = masterData.sights
@@ -691,8 +742,11 @@ function runOptimizer(reoptimizeHotels = false, reoptimizeSights = false, skipRo
         return { ...sourceRoute, hotel: finalHotel, isHotelManual, sights: finalSights.sort((a, b) => a.assignedDay - b.assignedDay) };
     });
 
-    // C. Optimize Transfers (Dynamic N+2 Logic)
+    // C. Optimize Transfers (Intra-city)
     optimizeTransfers(tBudgetTotal, paxCount);
+
+    // D. Optimize Intercity (Train/Bus/Ferry between cities)
+    optimizeIntercity(tBudgetTotal, paxCount);
 
     renderTables();
     showToast("Plan generated successfully", "success");
@@ -700,11 +754,9 @@ function runOptimizer(reoptimizeHotels = false, reoptimizeSights = false, skipRo
 
 // --- 2. TRANSFER ENGINE (N+2 Logic & Auto-Fill) ---
 function optimizeTransfers(tBudgetTotal, paxCount) {
-    // Keep manual edits, rebuild others
     const manualTransfers = selectedTransfers.filter(t => t.isManual);
     let newLegs = [];
 
-    // Count required legs: Arrival + Inter-city legs + Departure
     const interCityLegCount = currentPlan.length - 1;
     const totalLegsNeeded = 1 + interCityLegCount + 1; 
     const groupBudgetPerLeg = totalLegsNeeded > 0 ? (tBudgetTotal / totalLegsNeeded) : 0;
@@ -715,17 +767,17 @@ function optimizeTransfers(tBudgetTotal, paxCount) {
             t.to.toLowerCase().includes(to.toLowerCase())
         );
         matches.sort((a, b) => b.avgPrice - a.avgPrice);
-        // Strict budget check: (Price * Pax) <= Leg Budget
         return matches.find(t => (t.avgPrice * paxCount) <= groupBudgetPerLeg) || null;
     };
 
-    // 1. ARRIVAL LEG (Airport -> First City)
+    // 1. ARRIVAL LEG (Date: First City Check-in)
     const arrivalKey = `arrival-${currentPlan[0].city}`;
     let arrivalMatch = manualTransfers.find(t => t.legId === arrivalKey);
     if (!arrivalMatch) {
         let dbMatch = findMatch("Airport", currentPlan[0].city);
         arrivalMatch = {
             legId: arrivalKey,
+            date: currentPlan[0].cin, // First Day
             from: dbMatch ? dbMatch.from : "Airport",
             to: dbMatch ? dbMatch.to : currentPlan[0].city,
             duration: dbMatch ? dbMatch.duration : "02:00 Hrs",
@@ -735,7 +787,7 @@ function optimizeTransfers(tBudgetTotal, paxCount) {
     }
     newLegs.push(arrivalMatch);
 
-    // 2. INTER-CITY LEGS
+    // 2. INTER-CITY LEGS (Date: Check-out of current city)
     for (let i = 0; i < currentPlan.length - 1; i++) {
         const fromC = currentPlan[i].city;
         const toC = currentPlan[i+1].city;
@@ -745,6 +797,7 @@ function optimizeTransfers(tBudgetTotal, paxCount) {
             let dbMatch = findMatch(fromC, toC);
             interMatch = {
                 legId: interKey,
+                date: currentPlan[i].cout, // Travel day
                 from: dbMatch ? dbMatch.from : fromC,
                 to: dbMatch ? dbMatch.to : toC,
                 duration: dbMatch ? dbMatch.duration : "04:00 Hrs",
@@ -755,13 +808,14 @@ function optimizeTransfers(tBudgetTotal, paxCount) {
         newLegs.push(interMatch);
     }
 
-    // 3. DEPARTURE LEG (Last City -> Airport)
+    // 3. DEPARTURE LEG (Date: Last City Check-out)
     const departureKey = `departure-${currentPlan[currentPlan.length-1].city}`;
     let departureMatch = manualTransfers.find(t => t.legId === departureKey);
     if (!departureMatch) {
         let dbMatch = findMatch(currentPlan[currentPlan.length-1].city, "Airport");
         departureMatch = {
             legId: departureKey,
+            date: currentPlan[currentPlan.length-1].cout, // Last Day
             from: dbMatch ? dbMatch.from : currentPlan[currentPlan.length-1].city,
             to: dbMatch ? dbMatch.to : "Airport",
             duration: dbMatch ? dbMatch.duration : "02:00 Hrs",
@@ -770,7 +824,6 @@ function optimizeTransfers(tBudgetTotal, paxCount) {
         };
     }
     newLegs.push(departureMatch);
-
     selectedTransfers = newLegs;
 }
 
@@ -780,7 +833,7 @@ function renderTables() {
     const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
     document.getElementById('resPaxCount').innerText = paxCount;
 
-    // 1. HOTEL RENDER
+    // 1. HOTEL RENDER (Existing logic)
     currentPlan.forEach((item) => {
         const hotelCostTotal = (Number(item.hotel?.cost) || 0) * item.nights;
         hHtml += `<tr>
@@ -793,7 +846,7 @@ function renderTables() {
             <td class="no-print text-center"><button onclick="openHotelSwap(${item.id})" class="text-blue-600 underline text-[10px]">SWAP</button></td>
         </tr>`;
 
-        // SIGHTSEEING RENDER
+        // SIGHTSEEING RENDER (Existing logic)
         for(let d=0; d <= item.nights; d++) {
             const activities = item.sights.filter(s => s.assignedDay === d);
             const currentDayDate = new Date(item.cin);
@@ -815,76 +868,76 @@ function renderTables() {
         }
     });
 
-    // Transfers Table Body Fix
-const tBody = document.getElementById('transferTableBody');
-if (tBody) {
-    tBody.innerHTML = selectedTransfers.map((t, idx) => `
-        <tr class="${t.isManual ? 'bg-yellow-50' : ''}">
+    // 2. SECTION 03: TRANSFERS RENDER (Added Date Column)
+    const tBody = document.getElementById('transferTableBody');
+    if (tBody) {
+        tBody.innerHTML = selectedTransfers.map((t, idx) => `
+            <tr class="${t.isManual ? 'bg-yellow-50' : ''}">
+                <td class="p-2 border text-[10px] font-bold">${formatDate(t.date)}</td>
+                <td class="p-2 border">
+                    <input type="text" value="${t.from}" onchange="editTransfer(${idx}, 'from', this.value)" class="w-full bg-transparent outline-none pdf-input uppercase font-semibold text-[10px]">
+                </td>
+                <td class="p-2 border">
+                    <input type="text" value="${t.to}" onchange="editTransfer(${idx}, 'to', this.value)" class="w-full bg-transparent outline-none pdf-input uppercase font-semibold text-[10px]">
+                </td>
+                <td class="p-2 border text-center">
+                    <input type="text" value="${t.duration}" onchange="editTransfer(${idx}, 'duration', this.value)" class="w-full text-center bg-transparent outline-none pdf-input text-[10px]">
+                </td>
+                <td class="p-2 border font-bold text-right price-col">
+                    <div class="flex items-center justify-end">
+                        <span>₹</span>
+                        <input type="number" value="${Math.round(t.avgPrice * paxCount)}" onchange="editTransfer(${idx}, 'avgPrice', this.value)" class="w-20 text-right bg-transparent outline-none font-bold pdf-input">
+                    </div>
+                </td>
+                <td class="p-2 border text-center no-print">
+                    <button onclick="deleteTransferLeg(${idx})" class="text-red-500 font-bold mr-2">✕</button>
+                    <button onclick="openTransferSwap('${t.legId}')" class="text-blue-600 underline text-[10px] font-bold">SWAP</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // 3. SECTION 04: INTERCITY RENDER (Added Date Column)
+    // 3. SECTION 04: INTERCITY RENDER (Corrected for PDF)
+const icBody = document.getElementById('ferryBusTableBody');
+if (icBody) {
+    icBody.innerHTML = selectedIntercity.map((ic, idx) => `
+        <tr class="${ic.isManual ? 'bg-blue-50/30' : ''}">
+            <td class="p-2 border text-[10px] font-bold">${formatDate(ic.date)}</td>
             <td class="p-2 border">
-                <input type="text" value="${t.from}" data-val="${t.from}" onchange="editTransfer(${idx}, 'from', this.value)" class="w-full bg-transparent outline-none pdf-input">
+                <input type="text" value="${ic.mode}" onchange="editIntercity(${idx}, 'mode', this.value)" 
+                       class="pdf-input w-full bg-transparent outline-none font-bold text-blue-700 uppercase text-[10px]">
             </td>
             <td class="p-2 border">
-                <input type="text" value="${t.to}" data-val="${t.to}" onchange="editTransfer(${idx}, 'to', this.value)" class="w-full bg-transparent outline-none pdf-input">
+                <input type="text" value="${ic.fromTo}" onchange="editIntercity(${idx}, 'fromTo', this.value)" 
+                       class="pdf-input w-full bg-transparent outline-none font-medium text-[10px]">
             </td>
-            <td class="p-2 border text-center">
-                <input type="text" value="${t.duration}" data-val="${t.duration}" onchange="editTransfer(${idx}, 'duration', this.value)" class="w-full text-center bg-transparent outline-none pdf-input">
+            <td class="p-2 border">
+                <input type="text" value="${ic.notes}" onchange="editIntercity(${idx}, 'notes', this.value)" 
+                       class="pdf-input w-full bg-transparent outline-none italic text-slate-500 text-[10px]" placeholder="Add schedule/notes...">
             </td>
             <td class="p-2 border font-bold text-right price-col">
                 <div class="flex items-center justify-end">
                     <span>₹</span>
-                    <input type="number" value="${Math.round(t.avgPrice * paxCount)}" data-val="${Math.round(t.avgPrice * paxCount)}" onchange="editTransfer(${idx}, 'avgPrice', this.value)" class="w-20 text-right bg-transparent outline-none font-bold pdf-input">
+                    <input type="number" value="${Math.round(ic.price * paxCount)}" onchange="editIntercity(${idx}, 'price', this.value)" 
+                           class="pdf-input w-20 text-right bg-transparent outline-none font-bold text-blue-800">
                 </div>
             </td>
             <td class="p-2 border text-center no-print">
-                <button onclick="deleteTransferLeg(${idx})" class="text-red-500 font-bold mr-2">✕</button>
-                <button onclick="openTransferSwap('${t.legId}')" class="text-blue-600 underline text-[10px] font-bold">SWAP</button>
+                <button onclick="selectedIntercity.splice(${idx}, 1); renderTables();" class="text-red-500 font-bold mr-2">✕</button>
+                <button onclick="openIntercitySwap('${ic.legId}')" class="text-blue-600 underline text-[10px] font-bold">SWAP</button>
             </td>
         </tr>
     `).join('');
 }
 
-    // 2. TRANSFER RENDER (With Input Fix for PDF)
-    // const tBody = document.getElementById('transferTableBody');
-    // if (tBody) {
-    //     tBody.innerHTML = selectedTransfers.map((t, idx) => `
-    //         <tr class="${t.isManual ? 'bg-yellow-50' : ''}">
-    //             <td class="p-2 border">
-    //                 <span class="print-text">${t.from}</span>
-    //                 <input type="text" value="${t.from}" onchange="editTransfer(${idx}, 'from', this.value)" class="w-full bg-transparent outline-none no-print">
-    //             </td>
-    //             <td class="p-2 border">
-    //                 <span class="print-text">${t.to}</span>
-    //                 <input type="text" value="${t.to}" onchange="editTransfer(${idx}, 'to', this.value)" class="w-full bg-transparent outline-none no-print">
-    //             </td>
-    //             <td class="p-2 border text-center">
-    //                 <span class="print-text">${t.duration}</span>
-    //                 <input type="text" value="${t.duration}" onchange="editTransfer(${idx}, 'duration', this.value)" class="w-full text-center bg-transparent outline-none no-print">
-    //             </td>
-    //             <td class="p-2 border font-bold text-right price-col">
-    //                 <span class="print-text">₹${(t.avgPrice * paxCount).toLocaleString()}</span>
-    //                 <div class="no-print">
-    //                     ₹<input type="number" value="${Math.round(t.avgPrice * paxCount)}" onchange="editTransfer(${idx}, 'avgPrice', this.value)" class="w-20 text-right bg-transparent outline-none font-bold">
-    //                 </div>
-    //             </td>
-    //             <td class="p-2 border text-center no-print space-x-2">
-    //                 <button onclick="deleteTransferLeg(${idx})" class="text-red-500 font-bold">✕</button>
-    //                 <button onclick="openTransferSwap('${t.legId}')" class="text-blue-600 underline text-[10px]">SWAP</button>
-    //             </td>
-    //         </tr>
-    //     `).join('');
-    // }
-
-    // 3. UPDATE DESTINATION & DURATION
+    // 4. GENERAL UI UPDATES (Existing logic)
     document.getElementById('hotelTableBody').innerHTML = hHtml;
     document.getElementById('sightTableBody').innerHTML = sHtml;
-    
-    // UI Updates
     const uniqueCities = [...new Set(currentPlan.map(p => p.city.toUpperCase()))];
     document.getElementById('resDest').innerText = uniqueCities.join(' - ') || '---';
-    
     const totalNights = currentPlan.reduce((s, r) => s + Number(r.nights), 0);
     document.getElementById('resDuration').innerText = `${totalNights} NIGHTS`;
-    
     calculateBudgetInvestment();
 }
 
@@ -1011,29 +1064,204 @@ function undoDelete() {
     }
 }
 
+function optimizeIntercity(tBudgetTotal, paxCount) {
+    if (!masterData.intercity) masterData.intercity = [];
+    let newIntercity = [];
 
-// --- 5. CALCULATE BUDGET (Profitability) ---
+    for (let i = 0; i < currentPlan.length - 1; i++) {
+        const fromC = currentPlan[i].city.toLowerCase();
+        const toC = currentPlan[i+1].city.toLowerCase();
+        const legId = `ic-${fromC}-${toC}`;
+
+        let existing = selectedIntercity.find(item => item.legId === legId);
+        if (existing && existing.isManual) {
+            newIntercity.push(existing);
+            continue;
+        }
+
+        const match = masterData.intercity.find(ic => 
+            ic.from.toLowerCase().includes(fromC) && 
+            ic.to.toLowerCase().includes(toC)
+        );
+
+        newIntercity.push({
+            legId: legId,
+            date: currentPlan[i].cout, // travel date
+            mode: match ? match.mode : "TBD",
+            fromTo: match ? `${match.from} to ${match.to}` : `${currentPlan[i].city} to ${currentPlan[i+1].city}`,
+            notes: "Scheduled",
+            price: match ? Number(match.price) : 0,
+            isManual: false
+        });
+    }
+    selectedIntercity = newIntercity;
+}
+// 1. OPEN MODAL (Triggered by SWAP button)
+function openIntercitySwap(legId) {
+    if (!masterData.intercity || masterData.intercity.length === 0) {
+        showToast("No intercity data found", "error");
+        return;
+    }
+
+    document.getElementById('modalHeading').innerText = "Select Intercity Transport";
+    let html = `
+        <div class="p-4 bg-white sticky top-0 border-b z-10 flex flex-col gap-2">
+            <input type="text" id="icSearch" placeholder="Search route or mode..." 
+                   oninput="filterIntercityModal('${legId}')" class="w-full p-2 border rounded-xl text-xs">
+            
+            <select id="icSortOrder" onchange="filterIntercityModal('${legId}')" class="w-full p-2 border rounded-xl text-[10px] font-bold text-gray-600 bg-gray-50">
+                <option value="none">Sort by: Default</option>
+                <option value="asc">Price: Low to High</option>
+                <option value="desc">Price: High to Low</option>
+            </select>
+        </div>
+        <div id="icListContainer" class="p-4 space-y-3 max-h-[400px] overflow-y-auto"></div>
+    `;
+    
+    document.getElementById('modalContent').innerHTML = html;
+    filterIntercityModal(legId);
+    toggleModal(true);
+}
+
+// 2. FILTER & SORT LOGIC
+function filterIntercityModal(legId) {
+    const query = document.getElementById('icSearch')?.value.toLowerCase() || "";
+    const sortOrder = document.getElementById('icSortOrder')?.value || "none";
+    const container = document.getElementById('icListContainer');
+    
+    // Filter master data
+    let filtered = masterData.intercity.filter(item => 
+        item.mode.toLowerCase().includes(query) || 
+        item.from.toLowerCase().includes(query) || 
+        item.to.toLowerCase().includes(query)
+    );
+
+    // Sort by price
+    if (sortOrder === "asc") {
+        filtered.sort((a, b) => Number(a.price) - Number(b.price));
+    } else if (sortOrder === "desc") {
+        filtered.sort((a, b) => Number(b.price) - Number(a.price));
+    }
+
+    if (filtered.length === 0) {
+        container.innerHTML = `<p class="text-center text-gray-400 text-[10px] py-10">No matching routes found.</p>`;
+        return;
+    }
+
+    container.innerHTML = filtered.map((item) => `
+        <div onclick="applyIntercitySwap('${legId}', ${JSON.stringify(item).replace(/"/g, '&quot;')})" 
+             class="p-3 border rounded-xl hover:border-blue-500 cursor-pointer flex justify-between items-center shadow-sm bg-white transition-all">
+            <div>
+                <span class="text-[9px] font-black bg-blue-100 text-blue-700 px-2 py-0.5 rounded uppercase">${item.mode}</span>
+                <p class="text-xs font-bold mt-1">${item.from} → ${item.to}</p>
+            </div>
+            <div class="text-right">
+                <p class="font-bold text-blue-600 text-xs">₹${Number(item.price).toLocaleString()}</p>
+                <p class="text-[8px] text-gray-400 uppercase">Per Pax</p>
+            </div>
+        </div>
+    `).join('');
+}
+
+// 3. APPLY SELECTION TO TABLE
+function applyIntercitySwap(legId, item) {
+    // Find if this leg already exists in our selected list
+    const idx = selectedIntercity.findIndex(ic => ic.legId === legId);
+    
+    const newEntry = {
+        legId: legId || 'manual-' + Date.now(),
+        mode: item.mode,
+        fromTo: `${item.from} to ${item.to}`,
+        notes: "Confirmed",
+        price: Number(item.price),
+        isManual: true
+    };
+
+    if (idx !== -1) {
+        // Replace existing
+        selectedIntercity[idx] = newEntry;
+    } else {
+        // Add new
+        selectedIntercity.push(newEntry);
+    }
+
+    toggleModal(false);
+    renderTables(); // This will trigger calculateBudgetInvestment() automatically
+}
+
+// 4. EDITABLE TABLE CELLS
+function editIntercity(index, field, value) {
+    if (!selectedIntercity[index]) return;
+    
+    if (field === 'price') {
+        const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
+        // Store the per-person price back into the array
+        selectedIntercity[index].price = Number(value) / paxCount;
+    } else {
+        selectedIntercity[index][field] = value;
+    }
+    selectedIntercity[index].isManual = true;
+    calculateBudgetInvestment(); 
+}
+// Function to actually put the row in the table
+// Function to update Section 04 data when you type in the table
+function editIntercity(index, field, value) {
+    if (field === 'price') {
+        const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
+        selectedIntercity[index].price = Number(value) / paxCount;
+    } else {
+        selectedIntercity[index][field] = value;
+    }
+    selectedIntercity[index].isManual = true;
+    calculateBudgetInvestment(); // Update totals immediately
+}
+
+// Updated: Adds to the ARRAY, not the HTML directly
+function addIntercityToTable(masterIndex) {
+    const item = masterData.intercity[masterIndex];
+    
+    // Add to the global array so runOptimizer/renderTables sees it
+    selectedIntercity.push({
+        legId: 'manual-' + Date.now(),
+        mode: item.mode,
+        fromTo: `${item.from} to ${item.to}`,
+        notes: "Scheduled",
+        price: Number(item.price),
+        isManual: true
+    });
+
+    toggleModal(false);
+    renderTables(); // This will refresh the UI and math
+}
+
+// Updated: Accurate Budget Calculation for all 4 sections
 function calculateBudgetInvestment() {
     let hNet = 0; let sNet = 0; 
     const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
 
+    // 1. Hotels and Sights
     currentPlan.forEach(p => { 
         hNet += (Number(p.hotel?.cost) || 0) * (Number(p.nights) || 0); 
-        sNet += p.sights.reduce((sum, s) => sum + (Number(s.price) * paxCount), 0); 
+        sNet += (p.sights || []).reduce((sum, s) => sum + (Number(s.price) * paxCount), 0); 
     });
 
+    // 2. Section 03: Transfers
     const tNet = selectedTransfers.reduce((sum, t) => sum + (Number(t.avgPrice) * paxCount), 0);
+
+    // 3. Section 04: Intercity (Now pulling from the array)
+    const icNet = selectedIntercity.reduce((sum, ic) => sum + (Number(ic.price) * paxCount), 0);
 
     const mPct = Number(document.getElementById('markupInput').value) || 0;
     const gPct = Number(document.getElementById('gstInput').value) || 0;
 
-    const netTotal = hNet + sNet + tNet; 
+    const netTotal = hNet + sNet + tNet + icNet; 
     const markupValue = netTotal * (mPct / 100);
     const gstValue = (netTotal + markupValue) * (gPct / 100);
 
+    // Update UI Labels
     if(document.getElementById('netH')) document.getElementById('netH').innerText = `₹${hNet.toLocaleString()}`;
     if(document.getElementById('netS')) document.getElementById('netS').innerText = `₹${sNet.toLocaleString()}`;
-    if(document.getElementById('netT')) document.getElementById('netT').innerText = `₹${tNet.toLocaleString()}`;
+    if(document.getElementById('netT')) document.getElementById('netT').innerText = `₹${(tNet + icNet).toLocaleString()}`; 
 
     document.getElementById('valM').innerText = `₹${Math.round(markupValue).toLocaleString()}`;
     document.getElementById('valG').innerText = `₹${Math.round(gstValue).toLocaleString()}`;
@@ -1534,6 +1762,18 @@ function formatDate(d) { return d ? new Date(d).toLocaleDateString('en-GB', { da
     
     function toggleModal(s) { document.getElementById('swapModal').classList.toggle('hidden', !s); }
     function closeModal() { toggleModal(false); }
+    // --- AUTO LOGIN ON REFRESH ---
+function checkAutoLogin() {
+    const savedSession = localStorage.getItem("tripstore_session");
+    if (savedSession) {
+        const session = JSON.parse(savedSession);
+        isAdmin = session.isAdmin;
+        launchApp(session.modeText);
+    }
+}
+
+// Page load hote hi session check karo
+window.addEventListener('DOMContentLoaded', checkAutoLogin);
 </script>
 </body>
 </html>
