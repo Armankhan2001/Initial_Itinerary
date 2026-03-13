@@ -278,18 +278,17 @@
                             </tr></thead>
                             <tbody id="sightTableBody"></tbody>
                         </table>
-                        <!-- Car Transfer -->
+                        <!-- Train Transfer -->
                         <h3 class="text-[10px] font-black uppercase mb-2 mt-8 text-blue-800 tracking-widest">03. Transfers / CAR</h3>
                         <table class="trip-table">
                             <thead>
-                                <tr class="bg-slate-100 text-slate-700 uppercase text-[10px]">
-                                    <th class="p-2 border">Date</th>
-                                    <th class="p-2 border">City</th> 
-                                    <th class="p-2 border">From</th>
-                                    <th class="p-2 border">To</th>
-                                    <th class="p-2 border">Details</th>
-                                    <th class="p-2 border text-right">Cost</th>
-                                    <th class="p-2 border no-print">Action</th>
+                                <tr class="header-blue">
+                                    <th style="width:10%">Date</th>
+                                    <th style="width:25%">From (City & Station)</th>
+                                    <th style="width:25%">To (Destination Station)</th>
+                                    <th style="width:20%">Duration</th>
+                                    <th class="price-col" style="width:15%">Avg Price</th>
+                                    <th class="no-print" style="width:15%">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="transferTableBody">
@@ -352,15 +351,10 @@
     <span id="undo-msg">Transfer removed</span>
     <button onclick="undoDelete()">UNDO</button>
 </div>
-
-<button onclick="alert(JSON.stringify(masterData.transfers.slice(0,3), null, 2))" 
-        style="position:fixed; top:10px; right:10px; z-index:9999; background:red; color:white; padding:5px;">
-    Check Database Data
-</button>
     
 
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbxbLcEsfS40CFIeolamNkPOXAWqmO4QGNWPRb_k30dJ_1LA5LeuXUGpZktSHlJHAFQsVA/exec"
+    const API_URL = "https://script.google.com/macros/s/AKfycbzw-5ZXfnV7gB_t91FVgiD8YPhwPGRq9_cYk2DR07h9Ig8_joj7jZ3kt6GG3II69WX2qg/exec"; 
     let masterData = { hotels: [], sights: [] };
     let selectedRoute = []; 
     let currentPlan = [];
@@ -759,179 +753,225 @@ function runOptimizer(reoptimizeHotels = false, reoptimizeSights = false, skipRo
 }
 
 // --- 2. TRANSFER ENGINE (N+2 Logic & Auto-Fill) ---
-// --- 2. TRANSFER ENGINE (City-Based & Auto-Budget Logic) ---
-// --- FULL OPTIMIZER ---
 function optimizeTransfers(tBudgetTotal, paxCount) {
-    if (!masterData.transfers || masterData.transfers.length === 0) {
-        console.error("Master data khali hai!");
-        return;
-    }
-
     const manualTransfers = selectedTransfers.filter(t => t.isManual);
     let newLegs = [];
-    
-    const totalLegsNeeded = currentPlan.length + 1; 
-    const limit = tBudgetTotal > 0 ? (tBudgetTotal / totalLegsNeeded) : 9999999;
 
-    /**
-     * @param {string} targetCity - City Name
-     * @param {string} fromMatch - Expected 'From' (e.g., 'Airport')
-     * @param {string} toMatch - Expected 'To' (e.g., 'Hotel')
-     */
-    const findCityMatch = (targetCity, fromMatch, toMatch) => {
-        if (!targetCity) return null;
-        const sCity = targetCity.toLowerCase().trim();
-        const sFrom = fromMatch.toLowerCase().trim();
-        const sTo = toMatch.toLowerCase().trim();
+    const interCityLegCount = currentPlan.length - 1;
+    const totalLegsNeeded = 1 + interCityLegCount + 1; 
+    const groupBudgetPerLeg = totalLegsNeeded > 0 ? (tBudgetTotal / totalLegsNeeded) : 0;
 
-        // 1. STRIKT FILTER: City, From, aur To teeno match hone chahiye
-        let matches = masterData.transfers.filter(t => {
-            const dbCity = (t.city || "").toLowerCase().trim();
-            const dbFrom = (t.from || "").toLowerCase().trim();
-            const dbTo = (t.to || "").toLowerCase().trim();
-
-            return (dbCity === sCity || dbCity.includes(sCity)) && 
-                   dbFrom.includes(sFrom) && 
-                   dbTo.includes(sTo);
-        });
-
-        // 2. FALLBACK: Agar exact sequence nahi mila toh sirf City match dhoondo
-        if (matches.length === 0) {
-            matches = masterData.transfers.filter(t => (t.city || "").toLowerCase().trim().includes(sCity));
-        }
-
-        if (matches.length === 0) return null;
-
-        // 3. SORT: Sabse sasta record pehle (Index 4/avgPrice logic)
-        matches.sort((a, b) => (Number(a.avgPrice) || 0) - (Number(b.avgPrice) || 0));
-
-        // 4. BUDGET CHECK: Limit ke andar wala dhoondo, warna sabse sasta
-        let found = matches.find(t => (Number(t.avgPrice) * paxCount) <= limit);
-        return found || matches[0]; 
+    const findMatch = (from, to) => {
+        let matches = masterData.transfers.filter(t => 
+            t.from.toLowerCase().includes(from.toLowerCase()) && 
+            t.to.toLowerCase().includes(to.toLowerCase())
+        );
+        matches.sort((a, b) => b.avgPrice - a.avgPrice);
+        return matches.find(t => (t.avgPrice * paxCount) <= groupBudgetPerLeg) || null;
     };
 
-    // --- PROCESS EACH LEG ---
-    const firstCity = currentPlan[0].city;
-    const lastCity = currentPlan[currentPlan.length - 1].city;
+    // 1. ARRIVAL LEG (Date: First City Check-in)
+    const arrivalKey = `arrival-${currentPlan[0].city}`;
+    let arrivalMatch = manualTransfers.find(t => t.legId === arrivalKey);
+    if (!arrivalMatch) {
+        let dbMatch = findMatch("Airport", currentPlan[0].city);
+        arrivalMatch = {
+            legId: arrivalKey,
+            date: currentPlan[0].cin, // First Day
+            from: dbMatch ? dbMatch.from : "Airport",
+            to: dbMatch ? dbMatch.to : currentPlan[0].city,
+            duration: dbMatch ? dbMatch.duration : "02:00 Hrs",
+            avgPrice: dbMatch ? dbMatch.avgPrice : 0,
+            isManual: false
+        };
+    }
+    newLegs.push(arrivalMatch);
 
-    // 1. Arrival Leg (Airport -> Hotel)
-    let arrivalMatch = manualTransfers.find(t => t.legId === `arrival-${firstCity}`) || 
-                       findCityMatch(firstCity, "Airport", "Hotel");
-    
-    newLegs.push({
-        legId: `arrival-${firstCity}`,
-        date: currentPlan[0].cin,
-        city: firstCity,
-        from: arrivalMatch ? arrivalMatch.from : "Airport",
-        to: arrivalMatch ? arrivalMatch.to : "Hotel",
-        details: arrivalMatch ? (arrivalMatch.duration || arrivalMatch.details) : `Standard Arrival in ${firstCity}`,
-        avgPrice: arrivalMatch ? Number(arrivalMatch.avgPrice) : 0, // Index 4 Price
-        isManual: arrivalMatch ? arrivalMatch.isManual : false
-    });
-
-    // 2. Inter-City Legs
+    // 2. INTER-CITY LEGS (Date: Check-out of current city)
     for (let i = 0; i < currentPlan.length - 1; i++) {
         const fromC = currentPlan[i].city;
         const toC = currentPlan[i+1].city;
-        const legKey = `inter-${fromC}-${toC}`;
-        let interMatch = manualTransfers.find(t => t.legId === legKey) || findCityMatch(fromC, fromC, toC);
-        
-        newLegs.push({
-            legId: legKey,
-            date: currentPlan[i].cout,
-            city: fromC,
-            from: interMatch ? interMatch.from : fromC,
-            to: interMatch ? interMatch.to : toC,
-            details: interMatch ? (interMatch.duration || interMatch.details) : `Transfer: ${fromC} to ${toC}`,
-            avgPrice: interMatch ? Number(interMatch.avgPrice) : 0, // Index 4 Price
-            isManual: interMatch ? interMatch.isManual : false
-        });
+        const interKey = `inter-${fromC}-${toC}`;
+        let interMatch = manualTransfers.find(t => t.legId === interKey);
+        if (!interMatch) {
+            let dbMatch = findMatch(fromC, toC);
+            interMatch = {
+                legId: interKey,
+                date: currentPlan[i].cout, // Travel day
+                from: dbMatch ? dbMatch.from : fromC,
+                to: dbMatch ? dbMatch.to : toC,
+                duration: dbMatch ? dbMatch.duration : "04:00 Hrs",
+                avgPrice: dbMatch ? dbMatch.avgPrice : 0,
+                isManual: false
+            };
+        }
+        newLegs.push(interMatch);
     }
 
-    // 3. Departure Leg (Hotel -> Airport)
-    let departureMatch = manualTransfers.find(t => t.legId === `departure-${lastCity}`) || 
-                         findCityMatch(lastCity, "Hotel", "Airport");
-
-    newLegs.push({
-        legId: `departure-${lastCity}`,
-        date: currentPlan[currentPlan.length - 1].cout,
-        city: lastCity,
-        from: departureMatch ? departureMatch.from : "Hotel",
-        to: departureMatch ? departureMatch.to : "Airport",
-        details: departureMatch ? (departureMatch.duration || departureMatch.details) : `Standard Departure from ${lastCity}`,
-        avgPrice: departureMatch ? Number(departureMatch.avgPrice) : 0, // Index 4 Price
-        isManual: departureMatch ? departureMatch.isManual : false
-    });
-
+    // 3. DEPARTURE LEG (Date: Last City Check-out)
+    const departureKey = `departure-${currentPlan[currentPlan.length-1].city}`;
+    let departureMatch = manualTransfers.find(t => t.legId === departureKey);
+    if (!departureMatch) {
+        let dbMatch = findMatch(currentPlan[currentPlan.length-1].city, "Airport");
+        departureMatch = {
+            legId: departureKey,
+            date: currentPlan[currentPlan.length-1].cout, // Last Day
+            from: dbMatch ? dbMatch.from : currentPlan[currentPlan.length-1].city,
+            to: dbMatch ? dbMatch.to : "Airport",
+            duration: dbMatch ? dbMatch.duration : "02:00 Hrs",
+            avgPrice: dbMatch ? dbMatch.avgPrice : 0,
+            isManual: false
+        };
+    }
+    newLegs.push(departureMatch);
     selectedTransfers = newLegs;
-    if (typeof renderTables === "function") renderTables(); // Refresh Table
 }
 
-// Helper function to keep code clean
-function formatLeg(dbMatch, legId, date, defFrom, defTo) {
-    return {
-        legId: legId,
-        date: date,
-        city: dbMatch ? dbMatch.city : (defFrom === "Airport" ? currentPlan[0].city : defFrom),
-        from: dbMatch ? dbMatch.from : defFrom,
-        to: dbMatch ? dbMatch.to : defTo,
-        details: dbMatch ? dbMatch.details : `Standard Transfer: ${defFrom} to ${defTo}`,
-        avgPrice: dbMatch ? Number(dbMatch.avgPrice) : 0,
-        isManual: dbMatch ? dbMatch.isManual : false
-    };
-}
-// --- 2. RENDER TABLE (WITH EDITABLE INPUTS) ---
+// --- 3. UPDATED RENDER TABLES (Editable Cells & Delete) ---
 function renderTables() {
     let hHtml = ""; let sHtml = ""; 
     const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
-    if(document.getElementById('resPaxCount')) document.getElementById('resPaxCount').innerText = paxCount;
+    document.getElementById('resPaxCount').innerText = paxCount;
 
-    // Hotel & Sightseeing Render
+    // 1. HOTEL RENDER (Existing logic)
     currentPlan.forEach((item) => {
         const hotelCostTotal = (Number(item.hotel?.cost) || 0) * item.nights;
-        hHtml += `<tr><td class="font-bold uppercase">${item.city}</td><td>${formatDate(item.cin)}</td><td>${formatDate(item.cout)}</td><td class="text-center font-bold">${item.nights}</td><td><b class="uppercase text-[10px]">${item.hotel?.name || '---'}</b></td><td><span class="text-blue-600 italic text-[9px]">${item.hotel?.type || '---'}</span></td><td class="text-center font-bold">₹${hotelCostTotal.toLocaleString()}</td><td class="no-print"><button onclick="openHotelSwap(${item.id})" class="text-blue-600 underline text-[10px]">SWAP</button></td></tr>`;
-        
-        for(let d=0; d <= item.nights; d++){
+        hHtml += `<tr>
+            <td class="font-bold uppercase">${item.city}</td>
+            <td>${formatDate(item.cin)}</td><td>${formatDate(item.cout)}</td>
+            <td class="text-center font-bold">${item.nights}</td>
+            <td><b class="uppercase">${item.hotel?.name || '---'}</b></td>
+            <td><span class="text-blue-600 italic text-[9px]">${item.hotel?.type || '---'}</span></td>
+            <td class="text-center font-bold price-col">₹${hotelCostTotal.toLocaleString()}</td>
+            <td class="no-print text-center"><button onclick="openHotelSwap(${item.id})" class="text-blue-600 underline text-[10px]">SWAP</button></td>
+        </tr>`;
+
+        // SIGHTSEEING RENDER (Existing logic)
+        for(let d=0; d <= item.nights; d++) {
             const activities = item.sights.filter(s => s.assignedDay === d);
-            const curDate = new Date(item.cin); curDate.setDate(curDate.getDate() + d);
-            const acts = activities.map(s => `<div class="flex justify-between text-[10px]"><span>• ${s.info}</span><span class="text-slate-400">₹${(s.price * paxCount).toLocaleString()}</span></div>`).join('') || '<span class="text-slate-300 italic text-[10px]">Free Day</span>';
-            sHtml += `<tr><td class="text-center font-bold text-[10px]">${formatDate(curDate)}</td><td>${acts}</td><td class="font-bold uppercase text-center text-[10px]">${item.city}</td><td class="no-print"><button onclick="openSightSwap(${item.id})" class="text-blue-600 underline text-[10px]">EDIT</button></td></tr>`;
+            const currentDayDate = new Date(item.cin);
+            currentDayDate.setDate(currentDayDate.getDate() + d);
+            const actsMarkup = activities.length > 0 
+                ? activities.map(s => `
+                    <div class="flex justify-between py-1 border-b border-slate-50">
+                        <span>• ${s.info}</span>
+                        <span class="price-tag text-slate-400">₹${(s.price * paxCount).toLocaleString()}</span>
+                    </div>`).join('')
+                : `<span class="text-slate-300 italic text-[10px]">Free Day / Transfer</span>`;
+
+            sHtml += `<tr>
+                <td class="text-center font-bold">${formatDate(currentDayDate)}</td>
+                <td class="py-2">${actsMarkup}</td>
+                <td class="font-bold uppercase text-center">${item.city}</td>
+                <td class="no-print text-center"><button onclick="openSightSwap(${item.id})" class="text-blue-600 underline text-[10px]">EDIT</button></td>
+            </tr>`;
         }
     });
 
-    // Transfers Table Render
+    // 2. SECTION 03: TRANSFERS RENDER (Added Date Column)
     const tBody = document.getElementById('transferTableBody');
     if (tBody) {
-        tBody.innerHTML = selectedTransfers.map((t, idx) => {
-            const totalCost = Math.round(Number(t.avgPrice || 0) * paxCount);
-            return `
-                <tr class="${t.isManual ? 'bg-blue-50/50' : ''}">
-                    <td class="p-2 border text-[10px] font-bold">${formatDate(t.date)}</td>
-                    <td class="p-2 border text-[10px] font-black text-blue-700 uppercase">${t.city || '---'}</td>
-                    <td class="p-2 border"><input type="text" value="${t.from || ''}" onchange="editTransfer(${idx}, 'from', this.value)" class="w-full bg-transparent outline-none uppercase font-bold text-[10px]"></td>
-                    <td class="p-2 border"><input type="text" value="${t.to || ''}" onchange="editTransfer(${idx}, 'to', this.value)" class="w-full bg-transparent outline-none uppercase font-bold text-[10px]"></td>
-                    <td class="p-2 border"><textarea onchange="editTransfer(${idx}, 'details', this.value)" class="w-full bg-transparent outline-none italic text-[9px] leading-tight resize-none">${t.details || ''}</textarea></td>
-                    <td class="p-2 border font-bold text-right text-blue-900 text-xs">
-                        <div class="flex items-center justify-end"><span>₹</span><input type="number" value="${totalCost}" onchange="editTransfer(${idx}, 'avgPrice', this.value)" class="w-20 text-right bg-transparent outline-none font-bold"></div>
-                    </td>
-                    <td class="p-2 border text-center no-print"><button onclick="deleteTransferLeg(${idx})" class="text-red-400 mr-2">✕</button><button onclick="openTransferSwap('${t.legId}')" class="text-blue-600 font-bold text-[10px]">SWAP</button></td>
-                </tr>`;
-        }).join('');
-    }
-
-    // Intercity Render
-    const icBody = document.getElementById('ferryBusTableBody');
-    if (icBody) {
-        icBody.innerHTML = selectedIntercity.map((ic, idx) => `
-            <tr><td class="p-2 border text-[10px] font-bold">${formatDate(ic.date)}</td><td class="p-2 border"><input type="text" value="${ic.mode}" onchange="editIntercity(${idx}, 'mode', this.value)" class="w-full bg-transparent outline-none font-bold text-blue-700 uppercase text-[10px]"></td><td class="p-2 border"><input type="text" value="${ic.fromTo}" onchange="editIntercity(${idx}, 'fromTo', this.value)" class="w-full bg-transparent outline-none font-medium text-[10px]"></td><td class="p-2 border"><input type="text" value="${ic.notes}" onchange="editIntercity(${idx}, 'notes', this.value)" class="w-full bg-transparent outline-none italic text-slate-500 text-[10px]"></td><td class="p-2 border font-bold text-right text-[11px]"><div class="flex items-center justify-end"><span>₹</span><input type="number" value="${Math.round(ic.price * paxCount)}" onchange="editIntercity(${idx}, 'price', this.value)" class="w-20 text-right bg-transparent outline-none font-bold text-blue-800"></div></td><td class="p-2 border text-center no-print"><button onclick="selectedIntercity.splice(${idx}, 1); renderTables();" class="text-red-500 font-bold mr-2">✕</button></td></tr>
+        tBody.innerHTML = selectedTransfers.map((t, idx) => `
+            <tr class="${t.isManual ? 'bg-yellow-50' : ''}">
+                <td class="p-2 border text-[10px] font-bold">${formatDate(t.date)}</td>
+                <td class="p-2 border">
+                    <input type="text" value="${t.from}" onchange="editTransfer(${idx}, 'from', this.value)" class="w-full bg-transparent outline-none pdf-input uppercase font-semibold text-[10px]">
+                </td>
+                <td class="p-2 border">
+                    <input type="text" value="${t.to}" onchange="editTransfer(${idx}, 'to', this.value)" class="w-full bg-transparent outline-none pdf-input uppercase font-semibold text-[10px]">
+                </td>
+                <td class="p-2 border text-center">
+                    <input type="text" value="${t.duration}" onchange="editTransfer(${idx}, 'duration', this.value)" class="w-full text-center bg-transparent outline-none pdf-input text-[10px]">
+                </td>
+                <td class="p-2 border font-bold text-right price-col">
+                    <div class="flex items-center justify-end">
+                        <span>₹</span>
+                        <input type="number" value="${Math.round(t.avgPrice * paxCount)}" onchange="editTransfer(${idx}, 'avgPrice', this.value)" class="w-20 text-right bg-transparent outline-none font-bold pdf-input">
+                    </div>
+                </td>
+                <td class="p-2 border text-center no-print">
+                    <button onclick="deleteTransferLeg(${idx})" class="text-red-500 font-bold mr-2">✕</button>
+                    <button onclick="openTransferSwap('${t.legId}')" class="text-blue-600 underline text-[10px] font-bold">SWAP</button>
+                </td>
+            </tr>
         `).join('');
     }
 
+    // 3. SECTION 04: INTERCITY RENDER (Added Date Column)
+    // 3. SECTION 04: INTERCITY RENDER (Corrected for PDF)
+const icBody = document.getElementById('ferryBusTableBody');
+if (icBody) {
+    icBody.innerHTML = selectedIntercity.map((ic, idx) => `
+        <tr class="${ic.isManual ? 'bg-blue-50/30' : ''}">
+            <td class="p-2 border text-[10px] font-bold">${formatDate(ic.date)}</td>
+            <td class="p-2 border">
+                <input type="text" value="${ic.mode}" onchange="editIntercity(${idx}, 'mode', this.value)" 
+                       class="pdf-input w-full bg-transparent outline-none font-bold text-blue-700 uppercase text-[10px]">
+            </td>
+            <td class="p-2 border">
+                <input type="text" value="${ic.fromTo}" onchange="editIntercity(${idx}, 'fromTo', this.value)" 
+                       class="pdf-input w-full bg-transparent outline-none font-medium text-[10px]">
+            </td>
+            <td class="p-2 border">
+                <input type="text" value="${ic.notes}" onchange="editIntercity(${idx}, 'notes', this.value)" 
+                       class="pdf-input w-full bg-transparent outline-none italic text-slate-500 text-[10px]" placeholder="Add schedule/notes...">
+            </td>
+            <td class="p-2 border font-bold text-right price-col">
+                <div class="flex items-center justify-end">
+                    <span>₹</span>
+                    <input type="number" value="${Math.round(ic.price * paxCount)}" onchange="editIntercity(${idx}, 'price', this.value)" 
+                           class="pdf-input w-20 text-right bg-transparent outline-none font-bold text-blue-800">
+                </div>
+            </td>
+            <td class="p-2 border text-center no-print">
+                <button onclick="selectedIntercity.splice(${idx}, 1); renderTables();" class="text-red-500 font-bold mr-2">✕</button>
+                <button onclick="openIntercitySwap('${ic.legId}')" class="text-blue-600 underline text-[10px] font-bold">SWAP</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+    // 4. GENERAL UI UPDATES (Existing logic)
     document.getElementById('hotelTableBody').innerHTML = hHtml;
     document.getElementById('sightTableBody').innerHTML = sHtml;
-    if(typeof calculateBudgetInvestment === "function") calculateBudgetInvestment();
+    const uniqueCities = [...new Set(currentPlan.map(p => p.city.toUpperCase()))];
+    document.getElementById('resDest').innerText = uniqueCities.join(' - ') || '---';
+    const totalNights = currentPlan.reduce((s, r) => s + Number(r.nights), 0);
+    document.getElementById('resDuration').innerText = `${totalNights} NIGHTS`;
+    calculateBudgetInvestment();
 }
-// --- 1. OPEN SWAP MODAL ---
+
+// --- 1. TRANSFER SEARCH & FILTER LOGIC ---
+// Yeh function Error fix karega (ReferenceError)
+function applyTransferFilters() {
+    const queryInput = document.getElementById('transferSearch');
+    const sortInput = document.getElementById('transferSort');
+    const container = document.getElementById('transferListContainer');
+    
+    if (!queryInput || !container) return;
+
+    const query = queryInput.value.toLowerCase();
+    const sort = sortInput.value;
+    
+    let filtered = masterData.transfers.filter(t => 
+        t.from.toLowerCase().includes(query) || t.to.toLowerCase().includes(query)
+    );
+
+    filtered.sort((a,b) => sort === "low" ? a.avgPrice - b.avgPrice : b.avgPrice - a.avgPrice);
+
+    container.innerHTML = filtered.map(t => `
+        <div class="flex justify-between items-center p-3 border rounded-xl hover:bg-blue-50 cursor-pointer mb-2" 
+             onclick="selectManualTransfer('${t.from}', '${t.to}', ${t.avgPrice}, '${t.duration}')">
+            <div>
+                <p class="text-xs font-bold">${t.from} ➔ ${t.to}</p>
+                <p class="text-[10px] text-slate-500">${t.duration || 'N/A'}</p>
+            </div>
+            <p class="font-bold text-blue-600">₹${t.avgPrice.toLocaleString()}</p>
+        </div>
+    `).join('');
+}
+
+// --- 2. MODAL & SELECTION ---
 function openTransferSwap(legId) {
     window.activeLegId = legId; 
     
@@ -940,187 +980,85 @@ function openTransferSwap(legId) {
 
     if (!modalHeading || !modalContent) return;
 
-    modalHeading.innerText = `Select Transfer Option`;
+    modalHeading.innerText = `Select Transfer for Connection`;
     modalContent.innerHTML = `
         <div class="p-4 bg-white sticky top-0 border-b space-y-3 z-10">
-            <input type="text" id="transferSearch" placeholder="Search City, Airport or Station..." 
-                oninput="applyTransferFilters()" class="w-full p-2 border rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+            <input type="text" id="transferSearch" placeholder="Search City, Airport or Type..." 
+                oninput="applyTransferFilters()" class="w-full p-2 border rounded-xl text-xs">
             <div class="flex justify-between items-center text-[10px]">
-                <span class="font-bold text-slate-500 uppercase tracking-wider">Sort By Price:</span>
-                <select id="transferSort" onchange="applyTransferFilters()" class="border rounded p-1 font-semibold text-slate-700">
+                <span class="font-bold text-slate-500 uppercase">Sort By Price:</span>
+                <select id="transferSort" onchange="applyTransferFilters()" class="border rounded p-1">
                     <option value="low">Low to High</option>
                     <option value="high">High to Low</option>
                 </select>
             </div>
         </div>
-        <div id="transferListContainer" class="p-4 overflow-y-auto max-h-[420px] bg-slate-50"></div>
+        <div id="transferListContainer" class="p-4 overflow-y-auto max-h-[400px]"></div>
     `;
     
     toggleModal(true);
-    
-    // Auto-fill the search box with the current leg's city to show relevant results immediately
-    const currentLeg = selectedTransfers.find(t => t.legId === legId);
-    if (currentLeg && currentLeg.city) {
-        const searchBox = document.getElementById('transferSearch');
-        searchBox.value = currentLeg.city;
-    }
-    
+    // Timeout isliye taaki HTML render hone ke baad filter chale
     setTimeout(applyTransferFilters, 10); 
 }
 
-// --- 2. APPLY FILTERS (Fixes Details and Cost) ---
-// ==========================================
-// --- SECTION 03: TRANSFERS FINAL WORKING CODE ---
-// ==========================================
-
-// 1. SELECT FUNCTION (Fixes City NA & Price 0)
-function selectManualTransfer(from, to, price, details, city) {
-    if (!window.activeLegId) return;
-    
+function selectManualTransfer(from, to, price, duration) {
     const idx = selectedTransfers.findIndex(t => t.legId === window.activeLegId);
     if (idx !== -1) {
-        // Create new object with forced values
-        const updatedLeg = {
+        selectedTransfers[idx] = {
             ...selectedTransfers[idx],
-            from: from,
-            to: to,
-            avgPrice: Number(price),
-            details: details,
-            city: (city && city !== 'undefined') ? city : selectedTransfers[idx].city,
+            from, to, avgPrice: price, duration,
             isManual: true
         };
-        
-        selectedTransfers[idx] = updatedLeg;
-        
-        console.log("Saving Selection:", updatedLeg); // Debug line
-        
-        toggleModal(false);
-        renderTables();
-        if (typeof calculateBudgetInvestment === "function") calculateBudgetInvestment();
-        showToast("Transfer updated!", "success");
     }
+    toggleModal(false);
+    renderTables();
 }
 
-function applyTransferFilters() {
-    const queryInput = document.getElementById('transferSearch');
-    const container = document.getElementById('transferListContainer');
-    const sort = document.getElementById('transferSort')?.value || 'low';
-    const paxCount = Number(document.getElementById('paxCountInput')?.value) || 1;
-    
-    if (!queryInput || !container || !masterData.transfers) return;
-    const query = queryInput.value.toLowerCase().trim();
-    
-    // Filtering strictly based on your Master Sheet Columns
-    let filtered = masterData.transfers.filter(t => {
-        const city = (t.city || "").toLowerCase();
-        const fromLoc = (t.from || "").toLowerCase();
-        const toLoc = (t.to || "").toLowerCase();
-        return city.includes(query) || fromLoc.includes(query) || toLoc.includes(query);
-    });
-
-    // Sorting
-    filtered.sort((a, b) => (Number(a.avgPrice || 0)) - (Number(b.avgPrice || 0)));
-    if (sort === "high") filtered.reverse();
-
-    container.innerHTML = filtered.map(t => {
-        const unitPrice = parseFloat(t.avgPrice) || 0;
-        const totalCost = Math.round(unitPrice * paxCount);
-        const esc = (s) => String(s || "").replace(/'/g, "\\'").replace(/"/g, "&quot;");
-
-        return `
-        <div class="bg-white border border-slate-200 p-3 rounded-xl mb-2 hover:border-blue-500 cursor-pointer shadow-sm group" 
-             onclick="selectManualTransfer('${esc(t.from)}', '${esc(t.to)}', ${unitPrice}, '${esc(t.duration)}', '${esc(t.city)}')">
-            <div class="flex justify-between items-center">
-                <div class="flex-1">
-                    <div class="flex items-center gap-2 mb-1">
-                        <span class="bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded font-black uppercase">${t.city || 'N/A'}</span>
-                        <span class="text-slate-500 text-[10px] font-bold uppercase">${t.from} ➔ ${t.to}</span>
-                    </div>
-                    <p class="text-[11px] text-slate-800 font-bold leading-tight">${t.duration || 'Transfer Details'}</p>
-                </div>
-                <div class="text-right min-w-[90px]">
-                    <p class="text-sm font-black text-blue-700">₹${totalCost.toLocaleString()}</p>
-                    <p class="text-[8px] text-slate-400 uppercase font-bold tracking-tighter">Total (${paxCount} Pax)</p>
-                </div>
-            </div>
-        </div>`;
-    }).join('');
-}
-function updateTransferTableUI() {
-    const tBody = document.getElementById('transferTableBody');
-    if (!tBody) return;
-    
-    const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
-    
-    tBody.innerHTML = selectedTransfers.map((t, idx) => {
-        const unitCost = Number(t.avgPrice) || 0;
-        const totalCost = Math.round(unitCost * paxCount);
-        // Use duration if details is undefined (as seen in your image)
-        const finalDetails = t.details || t.duration || '---';
-        
-        return `
-            <tr class="${t.isManual ? 'bg-blue-50' : 'bg-white'}">
-                <td class="p-2 border text-[10px] font-medium text-slate-500">${formatDate(t.date)}</td>
-                <td class="p-2 border text-[10px] font-black text-blue-800 uppercase">${t.city || t.from || 'N/A'}</td>
-                <td class="p-2 border text-[10px] font-bold text-slate-700 uppercase">${t.from || '---'}</td>
-                <td class="p-2 border text-[10px] font-bold text-slate-700 uppercase">${t.to || '---'}</td>
-                <td class="p-2 border text-[10px] italic text-slate-500 leading-tight">${finalDetails}</td>
-                <td class="p-2 border text-[11px] font-black text-right text-slate-900">
-                    <div>₹${totalCost.toLocaleString()}</div>
-                    <div class="text-[8px] text-slate-400 font-normal italic">₹${unitCost.toLocaleString()} / pax</div>
-                </td>
-                <td class="p-2 border text-center no-print">
-                    <div class="flex gap-2 justify-center">
-                        <button onclick="deleteTransferLeg(${idx})" class="text-red-500 font-bold text-xs hover:scale-125 transition">✕</button>
-                        <button onclick="openTransferSwap('${t.legId}')" class="text-blue-600 font-black text-[9px] border-b border-blue-600 hover:bg-blue-50">SWAP</button>
-                    </div>
-                </td>
-            </tr>
-        `;
-    }).join('');
-}
-// ==========================================
-// --- HELPERS & ACTIONS ---
-// ==========================================
-
+// --- 3. HELPER EDITS ---
 function editTransfer(index, field, value) {
     const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
     if (field === 'avgPrice') {
-        // Total cost ko wapas per person price mein convert karke store karta hai
         selectedTransfers[index].avgPrice = Number(value) / paxCount;
     } else {
         selectedTransfers[index][field] = value;
     }
-    selectedTransfers[index].isManual = true; // Mark as edited so it doesn't reset
-    
-    // UI refresh nahi karenge yahan taaki typing smooth rahe, bas totals update karenge
-    if (typeof calculateBudgetInvestment === "function") calculateBudgetInvestment();
+    selectedTransfers[index].isManual = true;
+    calculateBudgetInvestment();
 }
 
+let lastDeletedTransfer = null;
+let lastDeletedIndex = null;
+let undoTimer = null;
+
 function deleteTransferLeg(index) {
+    // 1. Data store karein
     lastDeletedTransfer = selectedTransfers[index];
     lastDeletedIndex = index;
 
+    // 2. Row delete karein
     selectedTransfers.splice(index, 1);
     renderTables();
 
+    // 3. Undo Bar dikhayein
     const bar = document.getElementById('undo-bar');
-    if(bar) {
-        bar.style.display = 'flex';
-        clearTimeout(undoTimer);
-        undoTimer = setTimeout(() => {
-            bar.style.display = 'none';
-            lastDeletedTransfer = null;
-        }, 5000); 
-    }
+    bar.style.display = 'flex';
+    
+    // 4. 5 seconds baad bar hide kar dein
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(() => {
+        bar.style.display = 'none';
+        lastDeletedTransfer = null; // Memory clear
+    }, 5000); 
 }
 
 function undoDelete() {
     if (lastDeletedTransfer) {
+        // Wapas usi index par insert karein
         selectedTransfers.splice(lastDeletedIndex, 0, lastDeletedTransfer);
         renderTables();
-        const bar = document.getElementById('undo-bar');
-        if(bar) bar.style.display = 'none';
+        
+        // Bar hide karein
+        document.getElementById('undo-bar').style.display = 'none';
         lastDeletedTransfer = null;
         showToast("Restored successfully!", "success");
     }
