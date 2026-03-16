@@ -157,7 +157,7 @@
                     <div class="space-y-3">
                         <label class="text-[10px] font-bold text-gray-400 uppercase">Traveler Details</label>
                         <input type="text" id="paxNameInput" oninput="updatePaxHeader()" class="w-full p-2 border rounded text-xs" placeholder="Name of Pax">
-                        <input type="number" id="paxCountInput" hidden value="2">
+                        <input type="number" id="paxCountInput" oninput="handlePaxChange(true, true)" class="w-full p-2 border rounded text-xs" placeholder="Number of Pax" value="2">
                         
                         <hr class="border-slate-100 my-2">
                         
@@ -173,17 +173,6 @@
                                 <input type="date" id="checkoutInput" class="w-full p-2 border rounded text-xs">
                             </div>
                         </div>
-                        <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="text-[9px] font-bold">Adults</label>
-                            <input type="number" id="adultCountInput" oninput="handlePaxChange()" class="w-full p-2 border rounded text-xs" value="2">
-                        </div>
-                        <div>
-                            <label class="text-[9px] font-bold">Children</label>
-                            <input type="number" id="childCountInput" oninput="handlePaxChange()" class="w-full p-2 border rounded text-xs" value="0">
-                        </div>
-                    </div>
-                    <div id="roomDisplay" class="text-[10px] font-bold text-blue-600 mt-1 uppercase">Rooms Required: 1</div>
                         <button onclick="addCityToRoute()" class="w-full bg-slate-800 text-white py-2 rounded font-bold mt-2 hover:bg-black transition-colors">+ Add Stop</button>
                         <div id="routeList" class="space-y-1 mt-4"></div>
                     </div>
@@ -249,46 +238,23 @@
                         </div>
 
                         <table class="trip-table">
-    <tr>
-        <td class="header-blue w-1/4">NAME OF PAX:</td>
-        <td class="text-center font-bold uppercase w-1/4" id="resPaxName">---</td>
-        <td class="header-blue w-1/4">NUMBER OF PAX:</td>
-        <td class="text-center font-bold uppercase w-1/4" id="resPaxCount">2</td>
-    </tr>
-
-    <tr>
-        <td class="header-blue w-1/4">DESTINATION:</td>
-        <td class="text-center font-bold uppercase w-1/4" id="resDest">---</td>
-        <td class="header-blue w-1/4">TOTAL DURATION:</td>
-        <td class="text-center font-bold w-1/4" id="resDuration">0 NIGHTS</td>
-    </tr>
-
-    <tr>
-        <td class="header-blue w-1/4">Per Adult Cost:</td>
-        <td class="text-center w-1/4 py-1"> <div class="flex flex-col leading-tight">
-                <span class="font-black text-blue-700 text-2xl" id="perAdultTotal">₹0</span>
-                <!-- <span class="text-[9px] font-bold text-red-600 uppercase tracking-tighter">+ TCS Extra</span> -->
-            </div>
-        </td>
-        <td class="header-blue w-1/4">Per Child Cost:</td>
-        <td class="text-center w-1/4 py-1">
-            <div class="flex flex-col leading-tight">
-                <span class="font-black text-blue-700 text-2xl" id="perChildTotal">₹0</span>
-                <!-- <span class="text-[9px] font-bold text-red-600 uppercase tracking-tighter">+ TCS Extra</span> -->
-            </div>
-        </td>
-    </tr>
-
-    <tr>
-        <td class="header-blue w-1/4">GRAND TOTAL QUOTATION:</td>
-        <td class="text-center bg-blue-50 py-2" colspan="3">
-            <div class="flex items-center justify-center gap-2">
-                <span class="font-black text-blue-800 text-4xl" id="resGrandTotal">₹0</span>
-                <span class="text-xs font-bold text-red-600 uppercase italic">+ TCS Extra</span>
-            </div>
-        </td>
-    </tr>
-</table>
+                            <tr>
+                                <td class="header-blue w-1/4">NAME OF PAX:</td>
+                                <td class="text-center font-bold uppercase" id="resPaxName">---</td>
+                                <td class="header-blue w-1/4">NUMBER OF PAX:</td>
+                                <td class="text-center font-bold uppercase" id="resPaxCount">2</td>
+                            </tr>
+                            <tr>
+                                <td class="header-blue w-1/4">DESTINATION:</td>
+                                <td class="text-center font-bold uppercase" id="resDest">---</td>
+                                <td class="header-blue w-1/4">TOTAL DURATION:</td>
+                                <td class="text-center font-bold" id="resDuration">0 NIGHTS</td>
+                            </tr>
+                            <tr>
+                                <td class="header-blue">GRAND TOTAL QUOTATION:</td>
+                                <td class="text-center font-black text-blue-700 text-3xl" colspan="3" id="resGrandTotal">₹0</td>
+                            </tr>
+                        </table>
 
                         <h3 class="text-[10px] font-black uppercase mb-2 mt-6 text-blue-800 tracking-widest">01. Hotel Stays</h3>
                         <table class="trip-table">
@@ -701,49 +667,63 @@ async function checkLogin() {
 
 /// --- 1. THE OPTIMIZER ---
 function runOptimizer(reoptimizeHotels = false, reoptimizeSights = false, skipRouteId = null, skipDayIdx = null) {
+    // 1. Reset everything if no route exists
     if (!selectedRoute || selectedRoute.length === 0) { 
         currentPlan = []; 
         selectedTransfers = [];
-        selectedIntercity = [];
+        selectedIntercity = []; // FIX: Reset Section 04 as well
         renderTables(); 
         return; 
     }
 
-    const config = getTravelConfigs();
-    const paxCount = config.totalPax;
-    const rooms = config.roomsRequired;
-    const vehicleCount = Math.ceil(paxCount / 4);
-
+    const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
     const hBudgetTotal = Number(document.getElementById('hotelBudget').value) || 0;
     const sBudgetTotal = Number(document.getElementById('sightBudget').value) || 0;
     const tBudgetTotal = Number(document.getElementById('transferBudget')?.value) || 0;
 
-    let spentH = 0; let sysHCount = 0; let spentS = 0;
-    currentPlan.forEach(p => {
-        if (p.hotel && p.isHotelManual) spentH += (Number(p.hotel.cost) * p.nights * rooms);
-        else sysHCount++;
-        if (p.sights) p.sights.forEach(s => { if (s.isManual) spentS += (Number(s.price) * paxCount); });
+    // A. Calculate Spent Budget (Manual items only)
+    let spentHotelBudget = 0;
+    let systemHotelCitiesCount = 0;
+    let spentSightBudget = 0;
+
+    currentPlan.forEach(route => {
+        if (route.hotel && route.isHotelManual) {
+            spentHotelBudget += (Number(route.hotel.cost) * route.nights);
+        } else {
+            systemHotelCitiesCount++;
+        }
+        // Ensure sights exists before looping
+        if (route.sights && Array.isArray(route.sights)) {
+            route.sights.forEach(s => {
+                if (s.isManual) spentSightBudget += (Number(s.price) * paxCount);
+            });
+        }
     });
 
-    const hCap = sysHCount > 0 ? Math.max(0, hBudgetTotal - spentH) / sysHCount : 0;
-    const totalDays = selectedRoute.reduce((sum, r) => sum + (Number(r.nights) + 1), 0);
-    // Group Allowance: Pure din ke liye kitna budget hai
-    const dailyGroupAllowance = totalDays > 0 ? (Math.max(0, sBudgetTotal - spentS) / totalDays) : 0;
+    const totalTripDays = selectedRoute.reduce((sum, r) => sum + (Number(r.nights) + 1), 0);
+    const remainingHBudget = Math.max(0, hBudgetTotal - spentHotelBudget);
+    const hCapPerSystemCity = systemHotelCitiesCount > 0 ? remainingHBudget / systemHotelCitiesCount : 0;
+    
+    const dailyGroupAllowance = totalTripDays > 0 ? (Math.max(0, sBudgetTotal - spentSightBudget) / totalTripDays) : 0;
 
+    // B. Rebuild Hotels & Sights
     currentPlan = selectedRoute.map((sourceRoute) => {
         const cityName = sourceRoute.city.toLowerCase();
-        const existingRoute = currentPlan.find(p => p.id === sourceRoute.id) || { ...sourceRoute, hotel: null, sights: [], isHotelManual: false };
+        const existingRoute = currentPlan.find(p => p.id === sourceRoute.id) || { 
+            ...sourceRoute, hotel: null, sights: [], isHotelManual: false 
+        };
 
         let finalHotel = existingRoute.hotel;
-        if (!existingRoute.isHotelManual && (reoptimizeHotels || !finalHotel)) {
+        let isHotelManual = existingRoute.isHotelManual;
+
+        if (!isHotelManual && (reoptimizeHotels || !finalHotel)) {
             const cityHotels = masterData.hotels.filter(h => h.city.toLowerCase() === cityName);
             if (cityHotels.length > 0) {
                 cityHotels.sort((a, b) => b.cost - a.cost); 
-                finalHotel = cityHotels.find(h => (Number(h.cost) * sourceRoute.nights * rooms) <= hCap) || cityHotels[cityHotels.length - 1];
+                finalHotel = cityHotels.find(h => (Number(h.cost) * sourceRoute.nights) <= hCapPerSystemCity) || cityHotels[cityHotels.length - 1];
             }
         }
 
-        // --- WAPAS AAPKA PURANA SIGHTSEEING LOGIC ---
         let finalSights = [...(existingRoute.sights || [])];
         if (reoptimizeSights || finalSights.length === 0) {
             finalSights = finalSights.filter(s => s.isManual);
@@ -754,347 +734,306 @@ function runOptimizer(reoptimizeHotels = false, reoptimizeSights = false, skipRo
             let usedInCity = new Set(finalSights.map(s => s.info));
             const daysInThisCity = Number(sourceRoute.nights) + 1;
 
-            // Har din ke liye check karega
             for (let d = 0; d < daysInThisCity; d++) {
                 let daySpent = finalSights.filter(s => s.assignedDay === d).reduce((sum, s) => sum + (Number(s.price) * paxCount), 0);
-                // Loop through all city sights to add MULTIPLE per day
                 for (let s of citySights) {
                     const sGroupPrice = Number(s.price) * paxCount;
                     if (!usedInCity.has(s.info) && (daySpent + sGroupPrice) <= dailyGroupAllowance) {
-                        finalSights.push({ 
-                            ...s, 
-                            price: Number(s.price), 
-                            instanceId: Date.now() + Math.random(), 
-                            assignedDay: d, 
-                            isManual: false 
-                        });
+                        finalSights.push({ ...s, price: Number(s.price), instanceId: Date.now() + Math.random(), assignedDay: d, isManual: false });
                         usedInCity.add(s.info);
                         daySpent += sGroupPrice;
                     }
                 }
             }
         }
-        return { ...sourceRoute, hotel: finalHotel, isHotelManual: existingRoute.isHotelManual, sights: finalSights.sort((a, b) => a.assignedDay - b.assignedDay) };
+        return { ...sourceRoute, hotel: finalHotel, isHotelManual, sights: finalSights.sort((a, b) => a.assignedDay - b.assignedDay) };
     });
 
-    optimizeAllTransport(tBudgetTotal, paxCount, vehicleCount);
-    renderTables();
-}
-function optimizeAllTransport(totalBudget, paxCount, vehicleCount) {
-    let newTransfers = [];
-    let newIntercity = [];
-    const icLegsCount = currentPlan.length - 1;
-    const totalLegs = icLegsCount + (2 + icLegsCount); 
-    const budgetPerLeg = totalBudget / (totalLegs || 1);
+    // C. Optimize Transfers (Intra-city)
+    optimizeTransfers(tBudgetTotal, paxCount);
 
-    const getBestFit = (data, city, from, to, isIC = false) => {
-        let matches = data.filter(item => {
-            const dbCity = (item.city || "").toLowerCase();
-            const dbFrom = (item.from || "").toLowerCase();
-            const dbTo = (item.to || "").toLowerCase();
-            return (dbCity.includes(city.toLowerCase()) || dbFrom.includes(city.toLowerCase())) && 
-                   dbFrom.includes(from.toLowerCase()) && dbTo.includes(to.toLowerCase());
+    // D. Optimize Intercity (Train/Bus/Ferry between cities)
+    optimizeIntercity(tBudgetTotal, paxCount);
+
+    renderTables();
+    showToast("Plan generated successfully", "success");
+}
+
+// --- 2. TRANSFER ENGINE (N+2 Logic & Auto-Fill) ---
+// --- 2. TRANSFER ENGINE (City-Based & Auto-Budget Logic) ---
+// --- FULL OPTIMIZER ---
+// --- UPDATED OPTIMIZER (STRICT MATCH LOGIC) ---
+function optimizeTransfers(tBudgetTotal, paxCount) {
+    if (!masterData.transfers || masterData.transfers.length === 0) return;
+
+    const manualTransfers = selectedTransfers.filter(t => t.isManual);
+    let newLegs = [];
+    const totalLegsNeeded = currentPlan.length + 1; 
+    const limit = tBudgetTotal > 0 ? (tBudgetTotal / totalLegsNeeded) : 9999999;
+
+    // --- Strict Matching Logic ---
+    const findCityMatchStrict = (targetCity, fromMatch, toMatch, isStrict = false) => {
+        if (!targetCity) return null;
+        const sCity = targetCity.toLowerCase().trim();
+        const sFrom = fromMatch.toLowerCase().trim();
+        const sTo = toMatch.toLowerCase().trim();
+
+        // 1. EXACT MATCH SEARCH
+        let matches = masterData.transfers.filter(t => {
+            const dbCity = (t.city || "").toLowerCase().trim();
+            const dbFrom = (t.from || "").toLowerCase().trim();
+            const dbTo = (t.to || "").toLowerCase().trim();
+
+            return (dbCity === sCity || dbCity.includes(sCity)) && 
+                   dbFrom.includes(sFrom) && 
+                   dbTo.includes(sTo);
         });
+
+        // 2. FALLBACK (Only if NOT strict)
+        if (matches.length === 0 && !isStrict) {
+            matches = masterData.transfers.filter(t => (t.city || "").toLowerCase().trim().includes(sCity));
+        }
+
         if (matches.length === 0) return null;
-        matches.sort((a, b) => Number(a.price || a.avgPrice) - Number(b.price || b.avgPrice));
-        return matches.find(m => (Number(m.price || m.avgPrice) * (isIC ? paxCount : vehicleCount)) <= budgetPerLeg) || matches[0];
+
+        matches.sort((a, b) => (Number(a.avgPrice) || 0) - (Number(b.avgPrice) || 0));
+        let found = matches.find(t => (Number(t.avgPrice) * paxCount) <= limit);
+        return found || matches[0]; 
     };
 
-    // 1. Arrival
     const firstCity = currentPlan[0].city;
-    let arr = getBestFit(masterData.transfers, firstCity, "Airport", "Hotel");
-    newTransfers.push(formatLeg(arr, `arrival-${firstCity}`, currentPlan[0].cin, "Airport", "Hotel"));
+    const lastCity = currentPlan[currentPlan.length - 1].city;
 
-    // 2. Inter-City & Station Links
+    // 1. Arrival Leg (Airport -> Hotel) - Yahan Fallback chalega
+    let arrivalMatch = manualTransfers.find(t => t.legId === `arrival-${firstCity}`) || 
+                       findCityMatchStrict(firstCity, "Airport", "Hotel", false);
+    
+    newLegs.push({
+        legId: `arrival-${firstCity}`,
+        date: currentPlan[0].cin,
+        city: firstCity,
+        from: arrivalMatch ? arrivalMatch.from : "Airport",
+        to: arrivalMatch ? arrivalMatch.to : "Hotel",
+        details: arrivalMatch ? (arrivalMatch.duration || arrivalMatch.details) : `Arrival in ${firstCity}`,
+        avgPrice: arrivalMatch ? Number(arrivalMatch.avgPrice) : 0,
+        isManual: arrivalMatch ? arrivalMatch.isManual : false
+    });
+
+    // 2. Inter-City Legs (STRICT: Sirf wahi uthaye jo DB mein hai)
     for (let i = 0; i < currentPlan.length - 1; i++) {
         const fromC = currentPlan[i].city;
         const toC = currentPlan[i+1].city;
-
-        // Section 04: Intercity
-        let ic = getBestFit(masterData.intercity, fromC, fromC, toC, true);
-        newIntercity.push({
-            legId: `ic-${fromC}-${toC}`,
+        const legKey = `inter-${fromC}-${toC}`;
+        
+        // Isme 'true' pass kiya hai taaki fallback na chale
+        let interMatch = manualTransfers.find(t => t.legId === legKey) || findCityMatchStrict(fromC, fromC, toC, true);
+        
+        newLegs.push({
+            legId: legKey,
             date: currentPlan[i].cout,
-            mode: ic ? ic.mode : "Ferry/Train",
-            fromTo: ic ? `${ic.from} to ${ic.to}` : `${fromC} to ${toC}`,
-            // Details add kiya
-            notes: ic ? (ic.details || ic.notes || "Scheduled") : "Scheduled Connection",
-            price: ic ? Number(ic.price) : 0,
-            isManual: false
+            city: fromC,
+            from: interMatch ? interMatch.from : "", // Blank if not found
+            to: interMatch ? interMatch.to : "",     // Blank if not found
+            details: interMatch ? (interMatch.duration || interMatch.details) : "", // Blank row
+            avgPrice: interMatch ? Number(interMatch.avgPrice) : 0,
+            isManual: interMatch ? interMatch.isManual : false
         });
-
-        // Section 03: Car to Station/Pier
-        let toStation = getBestFit(masterData.transfers, fromC, "Hotel", "Station");
-        newTransfers.push(formatLeg(toStation, `to-stat-${i}`, currentPlan[i].cout, "Hotel", "Station/Pier"));
     }
 
-    // 3. Departure
-    const lastCity = currentPlan[currentPlan.length - 1].city;
-    let dep = getBestFit(masterData.transfers, lastCity, "Hotel", "Airport");
-    newTransfers.push(formatLeg(dep, `departure-${lastCity}`, currentPlan[currentPlan.length - 1].cout, "Hotel", "Airport"));
+    // 3. Departure Leg (Hotel -> Airport) - Yahan Fallback chalega
+    let departureMatch = manualTransfers.find(t => t.legId === `departure-${lastCity}`) || 
+                         findCityMatchStrict(lastCity, "Hotel", "Airport", false);
 
-    selectedTransfers = newTransfers;
-    selectedIntercity = newIntercity;
+    newLegs.push({
+        legId: `departure-${lastCity}`,
+        date: currentPlan[currentPlan.length - 1].cout,
+        city: lastCity,
+        from: departureMatch ? departureMatch.from : "Hotel",
+        to: departureMatch ? departureMatch.to : "Airport",
+        details: departureMatch ? (departureMatch.duration || departureMatch.details) : `Departure from ${lastCity}`,
+        avgPrice: departureMatch ? Number(departureMatch.avgPrice) : 0,
+        isManual: departureMatch ? departureMatch.isManual : false
+    });
+
+    selectedTransfers = newLegs;
+    renderTables();
 }
-
+// Helper function to keep code clean
 function formatLeg(dbMatch, legId, date, defFrom, defTo) {
-    // Yahan hum details ko master data se utha rahe hain
-    let finalDetails = "Private Transfer";
-    if (dbMatch) {
-        finalDetails = dbMatch.details || dbMatch.duration || `Private ${dbMatch.type || ''} Transfer`;
-    }
-
     return {
         legId: legId,
         date: date,
-        city: dbMatch ? dbMatch.city : currentPlan[0].city,
+        city: dbMatch ? dbMatch.city : (defFrom === "Airport" ? currentPlan[0].city : defFrom),
         from: dbMatch ? dbMatch.from : defFrom,
         to: dbMatch ? dbMatch.to : defTo,
-        details: finalDetails, // Ab details khali nahi aayenge
-        avgPrice: dbMatch ? Number(dbMatch.avgPrice || dbMatch.price) : 0,
-        isManual: false
+        details: dbMatch ? dbMatch.details : `Standard Transfer: ${defFrom} to ${defTo}`,
+        avgPrice: dbMatch ? Number(dbMatch.avgPrice) : 0,
+        isManual: dbMatch ? dbMatch.isManual : false
     };
-}
-
-function getTravelConfigs() {
-    let adults = Number(document.getElementById('adultCountInput')?.value) || 2;
-    const children = Number(document.getElementById('childCountInput')?.value) || 0;
-
-    // --- CHANGE 1: Minimum 2 Adults Rule ---
-    // Agar user 1 select karega, tab bhi system calculation ke liye 2 hi lega
-    if (adults < 2) adults = 2;
-
-    const totalPax = adults + children;
-
-    // --- HOTEL PRICING LOGIC ---
-    // Adults logic: Ab minimum 2 adults hain, to (2 * 0.5) hamesha 1.0 se start hoga
-    let adultFactor = adults * 0.5;
-    
-    let childFactor = 0;
-    for (let i = 1; i <= children; i++) {
-        childFactor += (i % 2 === 0) ? 0.2 : 0.3; 
-    }
-
-    // Room count: Har 2 Adults pe 1 room (Ab ye hamesha minimum 1 room dega)
-    const roomsRequired = Math.ceil(adults / 2);
-
-    // pricingFactor (adultFactor + childFactor) 
-    // Example: 2 Adults (1.0) + 1 Child (0.3) = 1.3 Factor
-    return { 
-        adults, 
-        children, 
-        totalPax, 
-        pricingFactor: (adultFactor + childFactor), 
-        roomsRequired 
-    };
-}
-
-function calculateHotelPrice(perNightRoomRate, nights) {
-    const config = getTravelConfigs();
-    // Base Room Price x Nights x (Calculated Factor for Adults/Children)
-    return Math.round(perNightRoomRate * nights * config.pricingFactor);
 }
 
 // --- 2. RENDER TABLE (FIXED PRICE & NO DECIMALS) ---
 function renderTables() {
     let hHtml = ""; 
     let sHtml = ""; 
-    const config = getTravelConfigs();
-    const paxCount = config.totalPax;
+    const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
 
-    // 1. UPDATE SUMMARY HEADERS
+    // 1. UPDATE SUMMARY TABLE HEADERS
     if(document.getElementById('resPaxCount')) {
         document.getElementById('resPaxCount').innerText = paxCount;
     }
-    if(document.getElementById('roomDisplay')) {
-        document.getElementById('roomDisplay').innerText = `Rooms Required: ${config.roomsRequired}`;
-    }
 
     // 2. HOTEL & SIGHTSEEING RENDER
-currentPlan.forEach((item, planIdx) => {
-    const roomRate = Number(item.hotel?.cost) || 0;
-    // Hotel cost already calculateHotelPrice function ke andar handled hai
-    const hotelCostTotal = calculateHotelPrice(roomRate, item.nights);
-    
-    // --- HOTEL ROW ---
-    hHtml += `
+    currentPlan.forEach((item, planIdx) => {
+        // Decimal hatane ke liye Math.round use kiya
+        const hotelCostTotal = Math.round((Number(item.hotel?.cost) || 0) * item.nights);
+        
+        // --- HOTEL ROW ---
+        // --- HOTEL ROW (FORCE POSITION FIX) ---
+hHtml += `
     <tr class="border-b">
         <td class="font-bold uppercase p-2 border text-[10px] whitespace-nowrap">${item.city}</td>
         <td class="p-2 border text-[10px] text-center">${formatDate(item.cin)}</td>
         <td class="p-2 border text-[10px] text-center">${formatDate(item.cout)}</td>
         <td class="text-center font-bold p-2 border text-[10px] w-10">${item.nights}</td>
+        
         <td class="p-2 border min-w-[120px]">
             <input type="text" value="${item.hotel?.name || ''}" 
                 onchange="currentPlan[${planIdx}].hotel.name = this.value"
                 class="pdf-input w-full bg-transparent outline-none uppercase font-bold text-[10px]">
         </td>
+        
         <td class="p-2 border relative" style="min-width: 100px; max-width: 150px; overflow: hidden;">
             <input type="text" value="${item.hotel?.type || ''}" 
                 onchange="currentPlan[${planIdx}].hotel.type = this.value"
-                class="pdf-input w-full bg-transparent outline-none text-blue-600 italic text-[9px] truncate">
+                class="pdf-input w-full bg-transparent outline-none text-blue-600 italic text-[9px] truncate"
+                style="display: block; width: 100%;">
         </td>
         
-       <td class="price-col p-2 border bg-slate-50/30">
-            <div class="flex items-center w-full px-1" style="position: relative;">
-                <span class="font-bold text-[10px] text-slate-700 mr-1" style="flex-shrink: 0;">₹</span>
-                
-                <input type="number" value="${hotelCostTotal}" 
-                    onchange="currentPlan[${planIdx}].hotel.cost = (Number(this.value) / (${item.nights || 1} * ${config.pricingFactor})); calculateBudgetInvestment();" 
-                    class="pdf-input text-right bg-transparent outline-none font-bold text-[11px] w-full hide-spinners"
-                    style="-moz-appearance: textfield; appearance: none; margin: 0;">
+        <td class="price-col p-2 border bg-slate-50/30" style="width: 110px !important; min-width: 110px !important; max-width: 110px !important;">
+            <div class="flex items-center justify-end" style="display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; width: 100%;">
+                <span style="font-weight: bold; font-size: 11px; color: #333; flex-shrink: 0; margin-right: 2px;">₹</span>
+                <input type="number" value="${Math.round(hotelCostTotal)}" 
+                    onchange="currentPlan[${planIdx}].hotel.cost = (Number(this.value) / ${item.nights || 1}); calculateBudgetInvestment();" 
+                    class="pdf-input text-right bg-transparent outline-none font-bold text-[11px]"
+                    style="width: 70px !important; border: none; flex-shrink: 0;">
             </div>
         </td>
+        
         <td class="no-print p-2 border text-center w-16">
             <button onclick="openHotelSwap(${item.id})" class="text-blue-600 underline text-[10px] font-bold">SWAP</button>
         </td>
     </tr>`;
-    
-    // --- SIGHTSEEING ROWS ---
-    for(let d=0; d <= item.nights; d++){
-        const activities = item.sights.filter(s => s.assignedDay === d);
-        const curDate = new Date(item.cin); 
-        curDate.setDate(curDate.getDate() + d);
         
-        const actsMarkup = activities.map((s) => {
-            const sIdx = item.sights.findIndex(found => found.id === s.id);
+        // --- SIGHTSEEING ROWS ---
+        for(let d=0; d <= item.nights; d++){
+            const activities = item.sights.filter(s => s.assignedDay === d);
+            const curDate = new Date(item.cin); 
+            curDate.setDate(curDate.getDate() + d);
             
-            // --- UPDATE: Single price from DB * Total Pax (Adult + Child) ---
-            const sTotal = Math.round(Number(s.price) * config.totalPax); 
+            const actsMarkup = activities.map((s) => {
+                const sIdx = item.sights.findIndex(found => found.id === s.id);
+                // Decimal hataya
+                const sTotal = Math.round(s.price * paxCount);
+                return `
+                <div class="flex justify-between items-center text-[10px] mb-1 gap-1 border-b border-slate-50 last:border-0 pb-1">
+                    <input type="text" value="${s.info}" 
+                        onchange="currentPlan[${planIdx}].sights[${sIdx}].info = this.value"
+                        class="pdf-input flex-1 bg-transparent outline-none truncate">
+                    <div class="price-col flex items-center text-slate-500 whitespace-nowrap ml-2 min-w-[80px] justify-end">
+                        <span class="mr-1">₹</span>
+                        <input type="number" value="${sTotal}" 
+                            onchange="currentPlan[${planIdx}].sights[${sIdx}].price = (Number(this.value) / ${paxCount}); calculateBudgetInvestment();" 
+                            class="pdf-input w-16 text-right bg-transparent outline-none font-medium">
+                    </div>
+                </div>`;
+            }).join('') || '<span class="text-slate-300 italic text-[10px]">Free Day / Transfer</span>';
+            
+            sHtml += `
+                <tr>
+                    <td class="text-center font-bold text-[10px] p-2 border">${formatDate(curDate)}</td>
+                    <td class="p-2 border">${actsMarkup}</td>
+                    <td class="font-bold uppercase text-center text-[10px] p-2 border">${item.city}</td>
+                    <td class="no-print p-2 border text-center w-16">
+                        <button onclick="openSightSwap(${item.id})" class="text-blue-600 underline text-[10px] font-bold">EDIT</button>
+                    </td>
+                </tr>`;
+        }
+    });
 
+    // 3. TRANSFERS TABLE RENDER
+    const tBody = document.getElementById('transferTableBody');
+    if (tBody) {
+        tBody.innerHTML = selectedTransfers.map((t, idx) => {
+            const totalCost = Math.round(Number(t.avgPrice || 0) * paxCount);
             return `
-            <div class="flex justify-between items-center text-[10px] mb-1 gap-1 border-b border-slate-50 last:border-0 pb-1">
-                <input type="text" value="${s.info}" 
-                    onchange="currentPlan[${planIdx}].sights[${sIdx}].info = this.value"
-                    class="pdf-input flex-1 bg-transparent outline-none truncate">
-                <div class="price-col flex items-center text-slate-500 justify-end min-w-[80px]">
-                    <span class="mr-1">₹</span>
-                    <input type="number" value="${sTotal}" 
-                        /* --- UPDATE: Save back as Single Pax Price by dividing by totalPax --- */
-                        onchange="currentPlan[${planIdx}].sights[${sIdx}].price = (Number(this.value) / ${config.totalPax}); calculateBudgetInvestment();" 
-                        class="pdf-input w-16 text-right bg-transparent outline-none font-medium">
-                </div>
-            </div>`;
-        }).join('') || '<span class="text-slate-300 italic text-[10px]">Free Day / Transfer</span>';
-        
-        sHtml += `
-            <tr>
-                <td class="text-center font-bold text-[10px] p-2 border">${formatDate(curDate)}</td>
-                <td class="p-2 border">${actsMarkup}</td>
-                <td class="font-bold uppercase text-center text-[10px] p-2 border">${item.city}</td>
-                <td class="no-print p-2 border text-center w-16">
-                    <button onclick="openSightSwap(${item.id})" class="text-blue-600 underline text-[10px] font-bold">EDIT</button>
-                </td>
-            </tr>`;
+                <tr class="${t.isManual ? 'bg-blue-50/50' : ''}">
+                    <td class="p-2 border text-[10px] font-bold">${formatDate(t.date)}</td>
+                    <td class="p-2 border text-[10px] font-black text-blue-700 uppercase">${t.city || '---'}</td>
+                    <td class="p-2 border"><input type="text" value="${t.from || ''}" onchange="editTransfer(${idx}, 'from', this.value)" class="pdf-input w-full bg-transparent outline-none uppercase font-bold text-[10px]"></td>
+                    <td class="p-2 border"><input type="text" value="${t.to || ''}" onchange="editTransfer(${idx}, 'to', this.value)" class="pdf-input w-full bg-transparent outline-none uppercase font-bold text-[10px]"></td>
+                    <td class="p-2 border min-w-[200px]">
+                        <textarea onchange="editTransfer(${idx}, 'details', this.value)" 
+                                  class="pdf-input w-full bg-transparent outline-none italic text-[9px] leading-tight resize-none min-h-[50px] overflow-y-auto block" 
+                                  placeholder="Details...">${t.details || ''}</textarea>
+                    </td>
+                    <td class="price-col p-2 border w-32 font-bold text-blue-900">
+                        <div class="flex items-center justify-end whitespace-nowrap">
+                            <span class="mr-1 text-[11px]">₹</span>
+                            <input type="number" value="${totalCost}" 
+                                   onchange="editTransfer(${idx}, 'avgPrice', this.value)" 
+                                   class="pdf-input w-20 text-right bg-transparent outline-none font-bold">
+                        </div>
+                    </td>
+                    <td class="p-2 border text-center no-print w-20">
+                        <button onclick="deleteTransferLeg(${idx})" class="text-red-400 mr-2 font-bold text-lg">✕</button>
+                        <button onclick="openTransferSwap('${t.legId}')" class="text-blue-600 font-bold text-[10px]">SWAP</button>
+                    </td>
+                </tr>`;
+        }).join('');
     }
-});
-   // 3. TRANSFERS TABLE
-const tBody = document.getElementById('transferTableBody');
-if (tBody) {
-    tBody.innerHTML = selectedTransfers.map((t, idx) => {
-        // --- CHANGE 1: Multiplier logic (1-4=1, 5-8=2, etc.) ---
-        const vMulti = Math.ceil(paxCount / 4); 
-        const totalCost = Math.round(Number(t.avgPrice || 0) * vMulti);
 
-        return `
-            <tr class="${t.isManual ? 'bg-blue-50/50' : ''}">
-                <td class="p-2 border text-[10px] font-bold">${formatDate(t.date)}</td>
-                <td class="p-2 border text-[10px] font-black text-blue-700 uppercase">${t.city || '---'}</td>
-                <td class="p-2 border"><input type="text" value="${t.from || ''}" onchange="editTransfer(${idx}, 'from', this.value)" class="pdf-input w-full bg-transparent outline-none uppercase font-bold text-[10px]"></td>
-                <td class="p-2 border"><input type="text" value="${t.to || ''}" onchange="editTransfer(${idx}, 'to', this.value)" class="pdf-input w-full bg-transparent outline-none uppercase font-bold text-[10px]"></td>
-                <td class="p-2 border min-w-[200px] italic text-[9px] leading-tight">
-                    <textarea onchange="editTransfer(${idx}, 'details', this.value)" class="pdf-input w-full bg-transparent outline-none resize-none overflow-y-auto block">${t.details || ''}</textarea>
-                </td>
-                <td class="price-col p-2 border w-32 font-bold text-blue-900">
-                    <div class="flex items-center justify-end">
+    // 4. INTERCITY RENDER
+    const icBody = document.getElementById('ferryBusTableBody');
+    if (icBody) {
+        icBody.innerHTML = selectedIntercity.map((ic, idx) => {
+            const icTotal = Math.round(ic.price * paxCount);
+            return `
+            <tr class="${ic.isManual ? 'bg-blue-50/30' : ''}">
+                <td class="p-2 border text-[10px] font-bold">${formatDate(ic.date)}</td>
+                <td class="p-2 border"><input type="text" value="${ic.mode}" onchange="editIntercity(${idx}, 'mode', this.value)" class="pdf-input w-full bg-transparent outline-none font-bold text-blue-700 uppercase text-[10px]"></td>
+                <td class="p-2 border"><input type="text" value="${ic.fromTo}" onchange="editIntercity(${idx}, 'fromTo', this.value)" class="pdf-input w-full bg-transparent outline-none font-medium text-[10px]"></td>
+                <td class="p-2 border"><input type="text" value="${ic.notes}" onchange="editIntercity(${idx}, 'notes', this.value)" class="pdf-input w-full bg-transparent outline-none italic text-slate-500 text-[10px]"></td>
+                <td class="price-col p-2 border w-32 font-bold text-blue-800">
+                    <div class="flex items-center justify-end whitespace-nowrap">
                         <span class="mr-1 text-[11px]">₹</span>
-                        <input type="number" value="${totalCost}" 
-                            /* --- CHANGE 2: Divide by vMulti instead of paxCount --- */
-                            onchange="editTransfer(${idx}, 'avgPrice', (Number(this.value) / Math.ceil(${paxCount}/4))); calculateBudgetInvestment();" 
-                            class="pdf-input w-20 text-right bg-transparent outline-none font-bold">
+                        <input type="number" value="${icTotal}" 
+                               onchange="editIntercity(${idx}, 'price', this.value)" 
+                               class="pdf-input w-20 text-right bg-transparent outline-none font-bold">
                     </div>
                 </td>
                 <td class="p-2 border text-center no-print w-20">
-                    <button onclick="deleteTransferLeg(${idx})" class="text-red-400 font-bold text-lg">✕</button>
-                    <button onclick="openTransferSwap('${t.legId}')" class="text-blue-600 font-bold text-[10px] ml-2">SWAP</button>
+                    <button onclick="selectedIntercity.splice(${idx}, 1); renderTables();" class="text-red-500 font-bold mr-2">✕</button>
+                    <button onclick="openIntercitySwap('${ic.legId}')" class="text-blue-600 font-bold text-[10px]">SWAP</button>
                 </td>
             </tr>`;
-    }).join('');
-}
-// 4. INTERCITY TABLE
-const icBody = document.getElementById('ferryBusTableBody');
-if (icBody) {
-    icBody.innerHTML = selectedIntercity.map((ic, idx) => {
-        // --- CHANGE 3: Multiplier logic for Intercity ---
-        const vMulti = Math.ceil(paxCount / 4);
-        const icTotal = Math.round(Number(ic.price || 0) * vMulti);
-
-        return `
-        <tr>
-            <td class="p-2 border text-[10px] font-bold">${formatDate(ic.date)}</td>
-            <td class="p-2 border"><input type="text" value="${ic.mode}" onchange="editIntercity(${idx}, 'mode', this.value)" class="pdf-input w-full bg-transparent outline-none font-bold text-blue-700 uppercase text-[10px]"></td>
-            <td class="p-2 border"><input type="text" value="${ic.fromTo}" onchange="editIntercity(${idx}, 'fromTo', this.value)" class="pdf-input w-full bg-transparent outline-none font-medium text-[10px]"></td>
-            <td class="p-2 border"><input type="text" value="${ic.notes}" onchange="editIntercity(${idx}, 'notes', this.value)" class="pdf-input w-full bg-transparent outline-none italic text-slate-500 text-[10px]"></td>
-            <td class="price-col p-2 border w-32 font-bold text-blue-800">
-                <div class="flex items-center justify-end">
-                    <span class="mr-1 text-[11px]">₹</span>
-                    <input type="number" value="${icTotal}" 
-                        /* --- CHANGE 4: Divide by vMulti for Intercity --- */
-                        onchange="editIntercity(${idx}, 'price', (Number(this.value) / Math.ceil(${paxCount}/4))); calculateBudgetInvestment();" 
-                        class="pdf-input w-20 text-right bg-transparent outline-none font-bold">
-                </div>
-            </td>
-            <td class="p-2 border text-center no-print w-20">
-                <button onclick="selectedIntercity.splice(${idx}, 1); renderTables();" class="text-red-500 font-bold mr-2">✕</button>
-                <button onclick="openIntercitySwap('${ic.legId}')" class="text-blue-600 font-bold text-[10px]">SWAP</button>
-            </td>
-        </tr>`;
-    }).join('');
-}
+        }).join('');
+    }
 
     // 5. FINAL UI UPDATES
     document.getElementById('hotelTableBody').innerHTML = hHtml;
     document.getElementById('sightTableBody').innerHTML = sHtml;
 
+    // 6. DYNAMIC SUMMARY
     const uniqueCities = [...new Set(currentPlan.map(p => p.city.toUpperCase()))];
     if(document.getElementById('resDest')) document.getElementById('resDest').innerText = uniqueCities.join(' - ') || '---';
 
     const totalNights = currentPlan.reduce((sum, row) => sum + (Number(row.nights) || 0), 0);
     if(document.getElementById('resDuration')) document.getElementById('resDuration').innerText = `${totalNights} NIGHTS`;
 
+    // 7. TOTAL CALCULATION
     if(typeof calculateBudgetInvestment === "function") calculateBudgetInvestment();
 }
-
-function getVehicleCount(pax) {
-    // This logic: 1-4 = 1, 5-8 = 2, 9-12 = 3...
-    return Math.ceil(pax / 4);
-}
-
-// function updateQuotationSummary(grandTotal) {
-//     const config = getTravelConfigs();
-//     const tcsRate = 0.05; // 5% TCS
-//     const totalWithTCS = grandTotal * (1 + tcsRate);
-    
-//     const perAdult = totalWithTCS / (config.adults + (config.children * 0.7)); // Weighted average
-    
-//     let html = `
-//         <div class="p-4 bg-blue-900 text-white rounded-lg">
-//             <h2 class="text-xl font-bold">Total Quotation: ₹${Math.round(totalWithTCS).toLocaleString()}</h2>
-//             <p class="text-[10px] opacity-80">*Inclusive of 5% TCS</p>
-//             <hr class="my-2 opacity-20">
-//             <div class="grid grid-cols-2 gap-4">
-//                 <div>
-//                     <p class="text-[10px] uppercase">Per Adult Price</p>
-//                     <p class="text-lg font-bold">₹${Math.round(totalWithTCS / config.totalPax).toLocaleString()} + TCS</p>
-//                 </div>
-//                 <div>
-//                     <p class="text-[10px] uppercase">Per Child Price</p>
-//                     <p class="text-lg font-bold">₹${Math.round((totalWithTCS / config.totalPax) * 0.8).toLocaleString()} + TCS</p>
-//                 </div>
-//             </div>
-//         </div>
-//     `;
-//     document.getElementById('finalSummaryDiv').innerHTML = html;
-// }
 
 
 // --- 1. OPEN SWAP MODAL ---
@@ -1171,12 +1110,12 @@ function applyTransferFilters() {
     const queryInput = document.getElementById('transferSearch');
     const container = document.getElementById('transferListContainer');
     const sort = document.getElementById('transferSort')?.value || 'low';
+    const paxCount = Number(document.getElementById('paxCountInput')?.value) || 1;
     
-    // Pax count ab calculation ke liye nahi, sirf display ke liye use ho raha hai (optional)
     if (!queryInput || !container || !masterData.transfers) return;
     const query = queryInput.value.toLowerCase().trim();
     
-    // 1. Filtering logic
+    // Filtering strictly based on your Master Sheet Columns
     let filtered = masterData.transfers.filter(t => {
         const city = (t.city || "").toLowerCase();
         const fromLoc = (t.from || "").toLowerCase();
@@ -1184,14 +1123,13 @@ function applyTransferFilters() {
         return city.includes(query) || fromLoc.includes(query) || toLoc.includes(query);
     });
 
-    // 2. Sorting
+    // Sorting
     filtered.sort((a, b) => (Number(a.avgPrice || 0)) - (Number(b.avgPrice || 0)));
     if (sort === "high") filtered.reverse();
 
-    // 3. Rendering (Per Pax / Exact DB Price)
     container.innerHTML = filtered.map(t => {
-        // Exact price from database
         const unitPrice = parseFloat(t.avgPrice) || 0;
+        const totalCost = Math.round(unitPrice * paxCount);
         const esc = (s) => String(s || "").replace(/'/g, "\\'").replace(/"/g, "&quot;");
 
         return `
@@ -1204,11 +1142,10 @@ function applyTransferFilters() {
                         <span class="text-slate-500 text-[10px] font-bold uppercase">${t.from} ➔ ${t.to}</span>
                     </div>
                     <p class="text-[11px] text-slate-800 font-bold leading-tight">${t.duration || 'Transfer Details'}</p>
-                    <p class="text-[9px] text-slate-400 mt-1 uppercase">${t.type || 'Standard'}</p>
                 </div>
                 <div class="text-right min-w-[90px]">
-                    <p class="text-sm font-black text-blue-700">₹${unitPrice.toLocaleString()}</p>
-                    <p class="text-[8px] text-slate-400 uppercase font-bold tracking-tighter">Per Vehicle/Trip</p>
+                    <p class="text-sm font-black text-blue-700">₹${totalCost.toLocaleString()}</p>
+                    <p class="text-[8px] text-slate-400 uppercase font-bold tracking-tighter">Total (${paxCount} Pax)</p>
                 </div>
             </div>
         </div>`;
@@ -1297,38 +1234,38 @@ function undoDelete() {
     }
 }
 
-// function optimizeIntercity(tBudgetTotal, paxCount) {
-//     if (!masterData.intercity) masterData.intercity = [];
-//     let newIntercity = [];
+function optimizeIntercity(tBudgetTotal, paxCount) {
+    if (!masterData.intercity) masterData.intercity = [];
+    let newIntercity = [];
 
-//     for (let i = 0; i < currentPlan.length - 1; i++) {
-//         const fromC = currentPlan[i].city.toLowerCase();
-//         const toC = currentPlan[i+1].city.toLowerCase();
-//         const legId = `ic-${fromC}-${toC}`;
+    for (let i = 0; i < currentPlan.length - 1; i++) {
+        const fromC = currentPlan[i].city.toLowerCase();
+        const toC = currentPlan[i+1].city.toLowerCase();
+        const legId = `ic-${fromC}-${toC}`;
 
-//         let existing = selectedIntercity.find(item => item.legId === legId);
-//         if (existing && existing.isManual) {
-//             newIntercity.push(existing);
-//             continue;
-//         }
+        let existing = selectedIntercity.find(item => item.legId === legId);
+        if (existing && existing.isManual) {
+            newIntercity.push(existing);
+            continue;
+        }
 
-//         const match = masterData.intercity.find(ic => 
-//             ic.from.toLowerCase().includes(fromC) && 
-//             ic.to.toLowerCase().includes(toC)
-//         );
+        const match = masterData.intercity.find(ic => 
+            ic.from.toLowerCase().includes(fromC) && 
+            ic.to.toLowerCase().includes(toC)
+        );
 
-//         newIntercity.push({
-//             legId: legId,
-//             date: currentPlan[i].cout, // travel date
-//             mode: match ? match.mode : "TBD",
-//             fromTo: match ? `${match.from} to ${match.to}` : `${currentPlan[i].city} to ${currentPlan[i+1].city}`,
-//             notes: "Scheduled",
-//             price: match ? Number(match.price) : 0,
-//             isManual: false
-//         });
-//     }
-//     selectedIntercity = newIntercity;
-// }
+        newIntercity.push({
+            legId: legId,
+            date: currentPlan[i].cout, // travel date
+            mode: match ? match.mode : "TBD",
+            fromTo: match ? `${match.from} to ${match.to}` : `${currentPlan[i].city} to ${currentPlan[i+1].city}`,
+            notes: "Scheduled",
+            price: match ? Number(match.price) : 0,
+            isManual: false
+        });
+    }
+    selectedIntercity = newIntercity;
+}
 // 1. OPEN MODAL (Triggered by SWAP button)
 function openIntercitySwap(legId) {
     if (!masterData.intercity || masterData.intercity.length === 0) {
@@ -1355,65 +1292,45 @@ function openIntercitySwap(legId) {
     filterIntercityModal(legId);
     toggleModal(true);
 }
+
+// 2. FILTER & SORT LOGIC
 function filterIntercityModal(legId) {
     const query = document.getElementById('icSearch')?.value.toLowerCase() || "";
     const sortOrder = document.getElementById('icSortOrder')?.value || "none";
     const container = document.getElementById('icListContainer');
     
-    // --- STEP 1: Extract cities from legId ---
-    const parts = legId.split('-');
-    const fromCityLimit = parts[1] ? parts[1].toLowerCase() : "";
-    const toCityLimit = parts[2] ? parts[2].toLowerCase() : "";
+    // Filter master data
+    let filtered = masterData.intercity.filter(item => 
+        item.mode.toLowerCase().includes(query) || 
+        item.from.toLowerCase().includes(query) || 
+        item.to.toLowerCase().includes(query)
+    );
 
-    // --- STEP 2: Filter master data ---
-    let filtered = masterData.intercity.filter(item => {
-        const itemFrom = item.from.toLowerCase();
-        const itemTo = item.to.toLowerCase();
-        const itemMode = item.mode.toLowerCase();
-
-        const isCorrectRoute = itemFrom.includes(fromCityLimit) && itemTo.includes(toCityLimit);
-        const matchesQuery = itemMode.includes(query) || itemFrom.includes(query) || itemTo.includes(query);
-
-        return isCorrectRoute && matchesQuery;
-    });
-
-    // --- STEP 3: Sorting ---
+    // Sort by price
     if (sortOrder === "asc") {
         filtered.sort((a, b) => Number(a.price) - Number(b.price));
     } else if (sortOrder === "desc") {
         filtered.sort((a, b) => Number(b.price) - Number(a.price));
     }
 
-    // --- STEP 4: Render ---
     if (filtered.length === 0) {
-        container.innerHTML = `
-            <div class="text-center py-10">
-                <p class="text-gray-400 text-[10px]">No specific routes found for ${fromCityLimit.toUpperCase()} to ${toCityLimit.toUpperCase()}.</p>
-                <p class="text-gray-300 text-[8px] mt-2">Check your Master Data for this route.</p>
-            </div>`;
+        container.innerHTML = `<p class="text-center text-gray-400 text-[10px] py-10">No matching routes found.</p>`;
         return;
     }
 
-    container.innerHTML = filtered.map((item) => {
-        // Exact price from database without multiplying anything
-        const unitPrice = Number(item.price) || 0;
-
-        return `
+    container.innerHTML = filtered.map((item) => `
         <div onclick="applyIntercitySwap('${legId}', ${JSON.stringify(item).replace(/"/g, '&quot;')})" 
              class="p-3 border rounded-xl hover:border-blue-500 cursor-pointer flex justify-between items-center shadow-sm bg-white transition-all">
             <div>
-                <div class="flex items-center gap-2">
-                    <span class="text-[9px] font-black bg-blue-100 text-blue-700 px-2 py-0.5 rounded uppercase">${item.mode}</span>
-                </div>
+                <span class="text-[9px] font-black bg-blue-100 text-blue-700 px-2 py-0.5 rounded uppercase">${item.mode}</span>
                 <p class="text-xs font-bold mt-1">${item.from} → ${item.to}</p>
-                <p class="text-[9px] text-gray-500">${item.details || item.notes || 'Scheduled Service'}</p>
             </div>
             <div class="text-right">
-                <p class="font-bold text-blue-600 text-xs">₹${unitPrice.toLocaleString()}</p>
-                <p class="text-[8px] text-gray-400 uppercase font-bold tracking-tighter">Per Vehicle / Trip</p>
+                <p class="font-bold text-blue-600 text-xs">₹${Number(item.price).toLocaleString()}</p>
+                <p class="text-[8px] text-gray-400 uppercase">Per Pax</p>
             </div>
         </div>
-    `}).join('');
+    `).join('');
 }
 
 // 3. APPLY SELECTION TO TABLE
@@ -1489,111 +1406,38 @@ function addIntercityToTable(masterIndex) {
 
 // Updated: Accurate Budget Calculation for all 4 sections
 function calculateBudgetInvestment() {
-    try {
-        // 1. IDs FIX: Aapke code mein 'adultCountInput' hai, 'adultInput' nahi
-        const adults = Number(document.getElementById('adultCountInput')?.value || 0);
-        const children = Number(document.getElementById('childCountInput')?.value || 0);
-        const paxCount = adults + children;
+    let hNet = 0; let sNet = 0; 
+    const paxCount = Number(document.getElementById('paxCountInput').value) || 1;
 
-        if (paxCount === 0) return;
+    // 1. Hotels and Sights
+    currentPlan.forEach(p => { 
+        hNet += (Number(p.hotel?.cost) || 0) * (Number(p.nights) || 0); 
+        sNet += (p.sights || []).reduce((sum, s) => sum + (Number(s.price) * paxCount), 0); 
+    });
 
-        let hNet = 0; 
-        let sNet = 0; 
-        const config = getTravelConfigs(); // Yeh aapke existing logic ko use karega
-        const vehicleCount = Math.ceil(paxCount / 4) || 1;
+    // 2. Section 03: Transfers
+    const tNet = selectedTransfers.reduce((sum, t) => sum + (Number(t.avgPrice) * paxCount), 0);
 
-        // 2. HOTEL & SIGHTSEEING CALCULATION
-        currentPlan.forEach(p => { 
-            const roomRate = Number(p.hotel?.cost) || 0;
-            // Hotel price calculation using your pricingFactor logic
-            hNet += calculateHotelPrice(roomRate, p.nights); 
+    // 3. Section 04: Intercity (Now pulling from the array)
+    const icNet = selectedIntercity.reduce((sum, ic) => sum + (Number(ic.price) * paxCount), 0);
 
-            sNet += (p.sights || []).reduce((sum, s) => {
-                return sum + (Number(s.price || 0) * paxCount);
-            }, 0); 
-        });
+    const mPct = Number(document.getElementById('markupInput').value) || 0;
+    const gPct = Number(document.getElementById('gstInput').value) || 0;
 
-        // 3. TRANSPORT (Transfers + Intercity)
-        const tNet = selectedTransfers.reduce((sum, t) => sum + (Number(t.avgPrice || 0) * vehicleCount), 0);
-        const icNet = selectedIntercity.reduce((sum, ic) => sum + (Number(ic.price || 0) * vehicleCount), 0);
+    const netTotal = hNet + sNet + tNet + icNet; 
+    const markupValue = netTotal * (mPct / 100);
+    // const gstValue = (netTotal + markupValue) * (gPct / 100);
+    const gstValue = markupValue * (gPct / 100);
+    // Update UI Labels
+    if(document.getElementById('netH')) document.getElementById('netH').innerText = `₹${hNet.toLocaleString()}`;
+    if(document.getElementById('netS')) document.getElementById('netS').innerText = `₹${sNet.toLocaleString()}`;
+    if(document.getElementById('netT')) document.getElementById('netT').innerText = `₹${(tNet + icNet).toLocaleString()}`; 
 
-        // 4. MARKUP & GST
-        const mPct = Number(document.getElementById('markupInput')?.value || 0);
-        const gPct = Number(document.getElementById('gstInput')?.value || 0);
-
-        const netTotal = hNet + sNet + tNet + icNet; 
-        const markupValue = netTotal * (mPct / 100);
-        const gstValue = markupValue * (gPct / 100); 
-        const grandTotal = Math.round(netTotal + markupValue + gstValue);
-
-        // --- 5. ODD/EVEN CHILD & ADULT SPLIT LOGIC ---
-        // Hotel cost ko chhod kar baaki sab components
-        const otherCostsTotal = sNet + tNet + icNet + markupValue + gstValue;
-        const otherPerPax = otherCostsTotal / paxCount;
-
-        // Child Factor based on Odd/Even
-        let childFactor = 1; 
-        if (children > 0) {
-            childFactor = (children % 2 === 0) ? 0.50 : 0.30; // Even 50%, Odd 30%
-        }
-
-        // Hotel split formula: hNet = (adults * A) + (children * A * factor)
-        const adultHotelPart = hNet / (adults + (children * childFactor));
-        const childHotelPart = adultHotelPart * childFactor;
-
-        const finalAdultPrice = Math.round(adultHotelPart + otherPerPax);
-        const finalChildPrice = children > 0 ? Math.round(childHotelPart + otherPerPax) : 0;
-
-        // --- 6. UI UPDATES ---
-        const setVal = (id, val) => {
-            const el = document.getElementById(id);
-            if (el) el.innerText = val;
-        };
-
-        setVal('perAdultTotal', `₹${finalAdultPrice.toLocaleString('en-IN')}`);
-        setVal('perChildTotal', `₹${finalChildPrice.toLocaleString('en-IN')}`);
-        setVal('resGrandTotal', `₹${grandTotal.toLocaleString('en-IN')}`);
-        
-        // Pax Summary in Table
-        setVal('resPaxCount', `${adults} Adult(s) ${children > 0 ? '/ ' + children + ' Child(ren)' : ''}`);
-
-        // Small Labels Update
-        setVal('netH', `₹${Math.round(hNet).toLocaleString('en-IN')}`);
-        setVal('netS', `₹${Math.round(sNet).toLocaleString('en-IN')}`);
-        setVal('netT', `₹${Math.round(tNet + icNet).toLocaleString('en-IN')}`);
-        setVal('valM', `₹${Math.round(markupValue).toLocaleString('en-IN')}`);
-        setVal('valG', `₹${Math.round(gstValue).toLocaleString('en-IN')}`);
-
-    } catch (e) {
-        console.error("Budget Calculation Error:", e);
-    }
-}
-function updateQuotationSummary(grandTotal) {
-    const config = getTravelConfigs();
-    const tcsRate = 0.05; // 5% TCS as per rules
-    const totalWithTCS = grandTotal * (1 + tcsRate);
+    document.getElementById('valM').innerText = `₹${Math.round(markupValue).toLocaleString()}`;
+    document.getElementById('valG').innerText = `₹${Math.round(gstValue).toLocaleString()}`;
     
-    const perPaxBase = totalWithTCS / config.totalPax;
-    
-    let html = `
-        <div class="p-4 bg-blue-900 text-white rounded-lg shadow-xl">
-            <h2 class="text-xl font-bold">Final Quote: ₹${Math.round(totalWithTCS).toLocaleString()}</h2>
-            <p class="text-[10px] opacity-70 italic">*Inclusive of 5% TCS & GST</p>
-            <hr class="my-3 opacity-20">
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <p class="text-[9px] uppercase tracking-wider opacity-60">Per Adult Price</p>
-                    <p class="text-lg font-bold">₹${Math.round(perPaxBase).toLocaleString()}</p>
-                </div>
-                <div>
-                    <p class="text-[9px] uppercase tracking-wider opacity-60">Per Child Price</p>
-                    <p class="text-lg font-bold">₹${Math.round(perPaxBase * 0.85).toLocaleString()}</p>
-                </div>
-            </div>
-        </div>
-    `;
-    const target = document.getElementById('finalSummaryDiv');
-    if(target) target.innerHTML = html;
+    const grandTotal = Math.round(netTotal + markupValue + gstValue);
+    document.getElementById('resGrandTotal').innerText = `₹${grandTotal.toLocaleString('en-IN')}`;
 }
     /* --- INTEGRATED SEARCH & RANGE FILTER LOGIC WITH COUNT --- */
 
