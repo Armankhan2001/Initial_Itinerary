@@ -935,40 +935,45 @@ function formatLeg(dbMatch, legId, date, defFrom, defTo, defCity) {
 function getTravelConfigs() {
     let adults = Number(document.getElementById('adultCountInput')?.value) || 2;
     const children = Number(document.getElementById('childCountInput')?.value) || 0;
-
-    // --- CHANGE 1: Minimum 2 Adults Rule ---
-    // Agar user 1 select karega, tab bhi system calculation ke liye 2 hi lega
     if (adults < 2) adults = 2;
 
     const totalPax = adults + children;
-
-    // --- HOTEL PRICING LOGIC ---
-    // Adults logic: Ab minimum 2 adults hain, to (2 * 0.5) hamesha 1.0 se start hoga
-    let adultFactor = adults * 0.5;
     
-    let childFactor = 0;
-    for (let i = 1; i <= children; i++) {
-        childFactor += (i % 2 === 0) ? 0.2 : 0.3; 
+    // 1. Pehle calculate karein kitne rooms lagenge (Max 4 pax per room)
+    let roomsRequired = Math.ceil(totalPax / 4);
+    
+    let totalFactor = 0;
+    let remainingPax = totalPax;
+
+    // 2. Har room ke liye factor calculate karein
+    for (let i = 0; i < roomsRequired; i++) {
+        // Is room mein kitne log jayenge (Max 4)
+        let paxInThisRoom = Math.min(remainingPax, 4);
+        
+        let roomFactor = 1.0; // Base Price for first 2 pax
+
+        if (paxInThisRoom === 3) {
+            roomFactor += 0.3; // 3rd person surcharge
+        } else if (paxInThisRoom === 4) {
+            roomFactor += 0.3 + 0.5; // 3rd (30%) + 4th (50%) = 80% surcharge
+        }
+
+        totalFactor += roomFactor;
+        remainingPax -= paxInThisRoom;
     }
 
-    // Room count: Har 2 Adults pe 1 room (Ab ye hamesha minimum 1 room dega)
-    const roomsRequired = Math.ceil(adults / 2);
-
-    // pricingFactor (adultFactor + childFactor) 
-    // Example: 2 Adults (1.0) + 1 Child (0.3) = 1.3 Factor
     return { 
         adults, 
         children, 
         totalPax, 
-        pricingFactor: (adultFactor + childFactor), 
+        pricingFactor: totalFactor, 
         roomsRequired 
     };
 }
-
 function calculateHotelPrice(perNightRoomRate, nights) {
     const config = getTravelConfigs();
-    // Base Room Price x Nights x (Calculated Factor for Adults/Children)
-    return Math.round(perNightRoomRate * nights * config.pricingFactor);
+    // Example: ₹5000 * 2 nights * 1.8 factor (agar 2 bache hain) = ₹18,000
+    return Math.round(perNightRoomRate * (nights || 1) * config.pricingFactor);
 }
 
 // --- 2. RENDER TABLE (FIXED PRICE & NO DECIMALS) ---
@@ -1011,15 +1016,14 @@ currentPlan.forEach((item, planIdx) => {
         </td>
         
        <td class="price-col p-2 border bg-slate-50/30">
-            <div class="flex items-center w-full px-1" style="position: relative;">
-                <span class="font-bold text-[10px] text-slate-700 mr-1" style="flex-shrink: 0;">₹</span>
-                
-                <input type="number" value="${hotelCostTotal}" 
-                    onchange="currentPlan[${planIdx}].hotel.cost = (Number(this.value) / (${item.nights || 1} * ${config.pricingFactor})); calculateBudgetInvestment();" 
-                    class="pdf-input text-right bg-transparent outline-none font-bold text-[11px] w-full hide-spinners"
-                    style="-moz-appearance: textfield; appearance: none; margin: 0;">
-            </div>
-        </td>
+        <div class="flex items-center w-full px-1">
+            <span class="font-bold text-[10px] text-slate-700 mr-1">₹</span>
+            <input type="number" 
+                value="${Math.round(roomRate * item.nights * config.pricingFactor)}" 
+                onchange="currentPlan[${planIdx}].hotel.cost = (Number(this.value) / (${item.nights || 1} * ${config.pricingFactor})); calculateBudgetInvestment();" 
+                class="pdf-input text-right bg-transparent outline-none font-bold text-[11px] w-full hide-spinners">
+        </div>
+    </td>
         <td class="no-print p-2 border text-center w-16">
             <button onclick="openHotelSwap(${item.id})" class="text-blue-600 underline text-[10px] font-bold">SWAP</button>
         </td>
