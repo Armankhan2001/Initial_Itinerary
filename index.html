@@ -780,6 +780,62 @@ function runOptimizer(reoptimizeHotels = false, reoptimizeSights = false, skipRo
     optimizeAllTransport(tBudgetTotal, paxCount, vehicleCount);
     renderTables();
 }
+// function optimizeAllTransport(totalBudget, paxCount, vehicleCount) {
+//     let newTransfers = [];
+//     let newIntercity = [];
+//     const icLegsCount = currentPlan.length - 1;
+//     const totalLegs = icLegsCount + (2 + icLegsCount); 
+//     const budgetPerLeg = totalBudget / (totalLegs || 1);
+
+//     const getBestFit = (data, city, from, to, isIC = false) => {
+//         let matches = data.filter(item => {
+//             const dbCity = (item.city || "").toLowerCase();
+//             const dbFrom = (item.from || "").toLowerCase();
+//             const dbTo = (item.to || "").toLowerCase();
+//             return (dbCity.includes(city.toLowerCase()) || dbFrom.includes(city.toLowerCase())) && 
+//                    dbFrom.includes(from.toLowerCase()) && dbTo.includes(to.toLowerCase());
+//         });
+//         if (matches.length === 0) return null;
+//         matches.sort((a, b) => Number(a.price || a.avgPrice) - Number(b.price || b.avgPrice));
+//         return matches.find(m => (Number(m.price || m.avgPrice) * (isIC ? paxCount : vehicleCount)) <= budgetPerLeg) || matches[0];
+//     };
+
+//     // 1. Arrival
+//     const firstCity = currentPlan[0].city;
+//     let arr = getBestFit(masterData.transfers, firstCity, "Airport", "Hotel");
+//     newTransfers.push(formatLeg(arr, `arrival-${firstCity}`, currentPlan[0].cin, "Airport", "Hotel",firstCity));
+
+//     // 2. Inter-City & Station Links
+//     for (let i = 0; i < currentPlan.length - 1; i++) {
+//         const fromC = currentPlan[i].city;
+//         const toC = currentPlan[i+1].city;
+
+//         // Section 04: Intercity
+//         let ic = getBestFit(masterData.intercity, fromC, fromC, toC, true);
+//         newIntercity.push({
+//             legId: `ic-${fromC}-${toC}`,
+//             date: currentPlan[i].cout,
+//             mode: ic ? ic.mode : "Ferry/Train",
+//             fromTo: ic ? `${ic.from} to ${ic.to}` : `${fromC} to ${toC}`,
+//             // Details add kiya
+//             notes: ic ? (ic.details || ic.notes || "Scheduled") : "Scheduled Connection",
+//             price: ic ? Number(ic.price) : 0,
+//             isManual: false
+//         });
+
+//         // Section 03: Car to Station/Pier
+//         let toStation = getBestFit(masterData.transfers, fromC, "Hotel", "Station");
+//         newTransfers.push(formatLeg(toStation, `to-stat-${i}`, currentPlan[i].cout, "Hotel", "Station/Pier", fromC));
+//     }
+
+//     // 3. Departure
+//     const lastCity = currentPlan[currentPlan.length - 1].city;
+//     let dep = getBestFit(masterData.transfers, lastCity, "Hotel", "Airport");
+//     newTransfers.push(formatLeg(dep, `departure-${lastCity}`, currentPlan[currentPlan.length - 1].cout, "Hotel", "Airport", lastCity));
+
+//     selectedTransfers = newTransfers;
+//     selectedIntercity = newIntercity;
+// }
 function optimizeAllTransport(totalBudget, paxCount, vehicleCount) {
     let newTransfers = [];
     let newIntercity = [];
@@ -797,33 +853,35 @@ function optimizeAllTransport(totalBudget, paxCount, vehicleCount) {
         });
         if (matches.length === 0) return null;
         matches.sort((a, b) => Number(a.price || a.avgPrice) - Number(b.price || b.avgPrice));
+        // isIC (Intercity) ke liye paxCount se multiply karke budget check hoga
         return matches.find(m => (Number(m.price || m.avgPrice) * (isIC ? paxCount : vehicleCount)) <= budgetPerLeg) || matches[0];
     };
 
     // 1. Arrival
     const firstCity = currentPlan[0].city;
     let arr = getBestFit(masterData.transfers, firstCity, "Airport", "Hotel");
-    newTransfers.push(formatLeg(arr, `arrival-${firstCity}`, currentPlan[0].cin, "Airport", "Hotel",firstCity));
+    newTransfers.push(formatLeg(arr, `arrival-${firstCity}`, currentPlan[0].cin, "Airport", "Hotel", firstCity));
 
     // 2. Inter-City & Station Links
     for (let i = 0; i < currentPlan.length - 1; i++) {
         const fromC = currentPlan[i].city;
         const toC = currentPlan[i+1].city;
 
-        // Section 04: Intercity
+        // --- SECTION 04: INTERCITY (Train/Bus/Ferry) ---
         let ic = getBestFit(masterData.intercity, fromC, fromC, toC, true);
+        
         newIntercity.push({
             legId: `ic-${fromC}-${toC}`,
             date: currentPlan[i].cout,
             mode: ic ? ic.mode : "Ferry/Train",
             fromTo: ic ? `${ic.from} to ${ic.to}` : `${fromC} to ${toC}`,
-            // Details add kiya
             notes: ic ? (ic.details || ic.notes || "Scheduled") : "Scheduled Connection",
-            price: ic ? Number(ic.price) : 0,
+            // UPDATE: Price = DB Price * Total Pax
+            price: ic ? (Number(ic.price) * paxCount) : 0, 
             isManual: false
         });
 
-        // Section 03: Car to Station/Pier
+        // Section 03: Car to Station/Pier (Uses Vehicle Multiplier logic inside render)
         let toStation = getBestFit(masterData.transfers, fromC, "Hotel", "Station");
         newTransfers.push(formatLeg(toStation, `to-stat-${i}`, currentPlan[i].cout, "Hotel", "Station/Pier", fromC));
     }
@@ -836,7 +894,6 @@ function optimizeAllTransport(totalBudget, paxCount, vehicleCount) {
     selectedTransfers = newTransfers;
     selectedIntercity = newIntercity;
 }
-
 // function formatLeg(dbMatch, legId, date, defFrom, defTo) {
 //     // Yahan hum details ko master data se utha rahe hain
 //     let finalDetails = "Private Transfer";
@@ -1039,13 +1096,12 @@ if (tBody) {
             </tr>`;
     }).join('');
 }
-// 4. INTERCITY TABLE
+// 4. INTERCITY TABLE (Updated Section)
 const icBody = document.getElementById('ferryBusTableBody');
 if (icBody) {
     icBody.innerHTML = selectedIntercity.map((ic, idx) => {
-        // --- CHANGE 3: Multiplier logic for Intercity ---
-        const vMulti = Math.ceil(paxCount / 4);
-        const icTotal = Math.round(Number(ic.price || 0) * vMulti);
+        // UPDATE: Intercity ke liye koi vMulti nahi, seedha total price jo saved hai
+        const icTotal = Math.round(Number(ic.price || 0)); 
 
         return `
         <tr>
@@ -1057,8 +1113,8 @@ if (icBody) {
                 <div class="flex items-center justify-end">
                     <span class="mr-1 text-[11px]">₹</span>
                     <input type="number" value="${icTotal}" 
-                        /* --- CHANGE 4: Divide by vMulti for Intercity --- */
-                        onchange="editIntercity(${idx}, 'price', (Number(this.value) / Math.ceil(${paxCount}/4))); calculateBudgetInvestment();" 
+                        /* UPDATE: Price change hone par usey wapas total pax se divide karke per-person base price mein save karein */
+                        onchange="editIntercity(${idx}, 'price', (Number(this.value))); calculateBudgetInvestment();" 
                         class="pdf-input w-20 text-right bg-transparent outline-none font-bold">
                 </div>
             </td>
