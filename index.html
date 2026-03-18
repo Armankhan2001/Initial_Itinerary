@@ -803,7 +803,7 @@ function optimizeAllTransport(totalBudget, paxCount, vehicleCount) {
     // 1. Arrival
     const firstCity = currentPlan[0].city;
     let arr = getBestFit(masterData.transfers, firstCity, "Airport", "Hotel");
-    newTransfers.push(formatLeg(arr, `arrival-${firstCity}`, currentPlan[0].cin, "Airport", "Hotel"));
+    newTransfers.push(formatLeg(arr, `arrival-${firstCity}`, currentPlan[0].cin, "Airport", "Hotel",firstCity));
 
     // 2. Inter-City & Station Links
     for (let i = 0; i < currentPlan.length - 1; i++) {
@@ -825,20 +825,38 @@ function optimizeAllTransport(totalBudget, paxCount, vehicleCount) {
 
         // Section 03: Car to Station/Pier
         let toStation = getBestFit(masterData.transfers, fromC, "Hotel", "Station");
-        newTransfers.push(formatLeg(toStation, `to-stat-${i}`, currentPlan[i].cout, "Hotel", "Station/Pier"));
+        newTransfers.push(formatLeg(toStation, `to-stat-${i}`, currentPlan[i].cout, "Hotel", "Station/Pier", fromC));
     }
 
     // 3. Departure
     const lastCity = currentPlan[currentPlan.length - 1].city;
     let dep = getBestFit(masterData.transfers, lastCity, "Hotel", "Airport");
-    newTransfers.push(formatLeg(dep, `departure-${lastCity}`, currentPlan[currentPlan.length - 1].cout, "Hotel", "Airport"));
+    newTransfers.push(formatLeg(dep, `departure-${lastCity}`, currentPlan[currentPlan.length - 1].cout, "Hotel", "Airport", lastCity));
 
     selectedTransfers = newTransfers;
     selectedIntercity = newIntercity;
 }
 
-function formatLeg(dbMatch, legId, date, defFrom, defTo) {
-    // Yahan hum details ko master data se utha rahe hain
+// function formatLeg(dbMatch, legId, date, defFrom, defTo) {
+//     // Yahan hum details ko master data se utha rahe hain
+//     let finalDetails = "Private Transfer";
+//     if (dbMatch) {
+//         finalDetails = dbMatch.details || dbMatch.duration || `Private ${dbMatch.type || ''} Transfer`;
+//     }
+
+//     return {
+//         legId: legId,
+//         date: date,
+//         city: dbMatch ? dbMatch.city : currentPlan[0].city,
+//         from: dbMatch ? dbMatch.from : defFrom,
+//         to: dbMatch ? dbMatch.to : defTo,
+//         details: finalDetails, // Ab details khali nahi aayenge
+//         avgPrice: dbMatch ? Number(dbMatch.avgPrice || dbMatch.price) : 0,
+//         isManual: false
+//     };
+// }
+// defCity naya parameter add kiya
+function formatLeg(dbMatch, legId, date, defFrom, defTo, defCity) { 
     let finalDetails = "Private Transfer";
     if (dbMatch) {
         finalDetails = dbMatch.details || dbMatch.duration || `Private ${dbMatch.type || ''} Transfer`;
@@ -847,10 +865,11 @@ function formatLeg(dbMatch, legId, date, defFrom, defTo) {
     return {
         legId: legId,
         date: date,
-        city: dbMatch ? dbMatch.city : currentPlan[0].city,
+        // FIX: currentPlan[0].city ko hata kar defCity use kiya
+        city: dbMatch ? dbMatch.city : defCity, 
         from: dbMatch ? dbMatch.from : defFrom,
         to: dbMatch ? dbMatch.to : defTo,
-        details: finalDetails, // Ab details khali nahi aayenge
+        details: finalDetails,
         avgPrice: dbMatch ? Number(dbMatch.avgPrice || dbMatch.price) : 0,
         isManual: false
     };
