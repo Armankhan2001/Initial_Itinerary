@@ -571,44 +571,62 @@ async function checkLogin() {
 
     // --- CLOUD STORAGE FUNCTIONS ---
     async function saveItinerary() {
-        const paxName = document.getElementById('paxNameInput').value.trim();
-        if (!paxName) return showToast("Enter Pax Name to save", "error");
-        
-        const btn = document.getElementById('btnSave');
-        btn.innerText = "SAVING...";
-        btn.disabled = true;
+    const paxName = document.getElementById('paxNameInput').value.trim();
+    if (!paxName) return showToast("Enter Pax Name to save", "error");
+    
+    const btn = document.getElementById('btnSave');
+    btn.innerText = "SAVING...";
+    btn.disabled = true;
 
-        const data = {
-            action: "saveItinerary", // Explicitly define action for backend
-            paxName: paxName,
-            payload: {
-                paxCount: document.getElementById('paxCountInput').value,
-                hotelBudget: document.getElementById('hotelBudget').value,
-                sightBudget: document.getElementById('sightBudget').value,
-                selectedTransfers: selectedTransfers, // Yeh line add karein
-                markup: document.getElementById('markupInput').value,
-                gst: document.getElementById('gstInput').value,
-                selectedRoute: selectedRoute,
-                currentPlan: currentPlan,
-                selectedTransfers: selectedTransfers, // Add this to payload so that transfers are also saved
-                selectedIntercity: selectedIntercity // --- ADDED THIS LINE ---
-            }
-        };
+    // Current Pax details fetch karein
+    const config = getTravelConfigs();
 
-        try {
-            await fetch(API_URL, { method: "POST", body: JSON.stringify(data) });
-            showToast("Saved Successfully");
-            if(isAdmin) refreshAdminList();
-        } catch (e) { showToast("Save Failed", "error"); } 
-        finally {
-            btn.innerText = "SAVE TO GOOGLE SHEETS";
-            btn.disabled = false;
+    const data = {
+        action: "saveItinerary",
+        paxName: paxName,
+        payload: {
+            // Pax Details
+            adults: config.adults,
+            children: config.children,
+            paxCount: config.totalPax, // Total for labels
+            
+            // Budgets
+            hotelBudget: document.getElementById('hotelBudget').value,
+            sightBudget: document.getElementById('sightBudget').value,
+            transferBudget: document.getElementById('transferBudget')?.value || 0,
+            
+            // Markup & Tax
+            markup: document.getElementById('markupInput').value,
+            gst: document.getElementById('gstInput').value,
+            
+            // Tables Data
+            selectedRoute: selectedRoute,
+            currentPlan: currentPlan,
+            selectedTransfers: selectedTransfers,
+            selectedIntercity: selectedIntercity
         }
+    };
+
+    try {
+        const response = await fetch(API_URL, { 
+            method: "POST", 
+            body: JSON.stringify(data) 
+        });
+        showToast("Saved Successfully to Cloud");
+        if(isAdmin && typeof refreshAdminList === "function") refreshAdminList();
+    } catch (e) { 
+        console.error("Save Error:", e);
+        showToast("Save Failed", "error"); 
+    } finally {
+        btn.innerText = "SAVE TO GOOGLE SHEETS";
+        btn.disabled = false;
     }
+}
 
     async function searchItinerary(query) {
     if (!query) return;
     const btn = document.getElementById('btnSearch');
+    const originalText = btn.innerText;
     btn.innerText = "...";
     showToast("Searching Cloud...");
     
@@ -620,38 +638,58 @@ async function checkLogin() {
 
         const data = JSON.parse(text);
         
-        // --- Input Fields Update ---
+        // --- 1. Inputs Update (Important for Pricing Logic) ---
         document.getElementById('paxNameInput').value = query;
-        document.getElementById('paxCountInput').value = data.paxCount;
-        document.getElementById('hotelBudget').value = data.hotelBudget;
-        document.getElementById('sightBudget').value = data.sightBudget;
         
-        if(data.transferBudget) {
-            document.getElementById('transferBudget').value = data.transferBudget;
+        // Adult aur Child inputs ko update karein
+        if(document.getElementById('adultCountInput')) 
+            document.getElementById('adultCountInput').value = data.adults || 2;
+        if(document.getElementById('childCountInput')) 
+            document.getElementById('childCountInput').value = data.children || 0;
+        if(document.getElementById('paxCountInput'))
+            document.getElementById('paxCountInput').value = data.paxCount || 2;
+
+        // Budgets Update
+        document.getElementById('hotelBudget').value = data.hotelBudget || 0;
+        document.getElementById('sightBudget').value = data.sightBudget || 0;
+        if(document.getElementById('transferBudget')) {
+            document.getElementById('transferBudget').value = data.transferBudget || 0;
         }
 
-        document.getElementById('markupInput').value = data.markup;
-        document.getElementById('gstInput').value = data.gst;
+        // Markup & GST
+        document.getElementById('markupInput').value = data.markup || 0;
+        document.getElementById('gstInput').value = data.gst || 0;
 
-        // --- Global Variables Update ---
+        // --- 2. Global Variables Update ---
         selectedRoute = data.selectedRoute || [];
         currentPlan = data.currentPlan || [];
         selectedTransfers = data.selectedTransfers || []; 
-        selectedIntercity = data.selectedIntercity || []; // --- ADDED THIS LINE ---
+        selectedIntercity = data.selectedIntercity || [];
 
-        // --- UI Refresh ---
+        // --- 3. UI Refresh ---
         updatePaxHeader();
         renderRouteInputs();
         
-        // Important: renderTables handles Hotel, Sights, Transfers, AND Intercity
+        // Dynamic labels update karein (jo humne pehle fix kiya tha)
+        const totalPax = (Number(data.adults) || 2) + (Number(data.children) || 0);
+        const hLabel = document.getElementById('hotelBudgetLabel');
+        const sLabel = document.getElementById('sightBudgetLabel');
+        if(hLabel) hLabel.innerText = `Hotel Budget (${totalPax} Pax)`;
+        if(sLabel) sLabel.innerText = `Sight Budget (${totalPax} Pax)`;
+
+        // Sabse important: renderTables() call karein taaki data screen pe dikhe
+        // Hum runOptimizer() call nahi karenge kyunki humein saved data chahiye, naya nahi
         renderTables(); 
+        
+        // Budget summary ko recalculate karein
+        if(typeof calculateBudgetInvestment === "function") calculateBudgetInvestment();
         
         showToast("Itinerary Loaded!");
     } catch (e) { 
-        console.error(e);
+        console.error("Load Error:", e);
         showToast("Error loading itinerary", "error"); 
     } finally { 
-        btn.innerText = "LOAD"; 
+        btn.innerText = originalText; 
     }
 }
 
@@ -950,32 +988,32 @@ function formatLeg(dbMatch, legId, date, defFrom, defTo, defCity) {
 
 function getTravelConfigs() {
     let adults = Number(document.getElementById('adultCountInput')?.value) || 2;
-    const children = Number(document.getElementById('childCountInput')?.value) || 0;
-    if (adults < 2) adults = 2;
-
-    const totalPax = adults + children;
+    const children = document.getElementById('childCountInput') ? Number(document.getElementById('childCountInput').value) : 0;
     
-    // 1. Pehle calculate karein kitne rooms lagenge (Max 4 pax per room)
-    let roomsRequired = Math.ceil(totalPax / 4);
-    
-    let totalFactor = 0;
-    let remainingPax = totalPax;
+    if (adults < 2) adults = 2; // Minimum 2 Adults Rule
 
-    // 2. Har room ke liye factor calculate karein
-    for (let i = 0; i < roomsRequired; i++) {
-        // Is room mein kitne log jayenge (Max 4)
-        let paxInThisRoom = Math.min(remainingPax, 4);
+    // --- 1. ROOMS CALCULATION (Based on Adults & Max Pax) ---
+    // Rule: Max 2 Adults per room OR Max 4 Total Pax per room
+    let roomsByAdults = Math.ceil(adults / 2);
+    let roomsByTotalPax = Math.ceil((adults + children) / 4);
+    let roomsRequired = Math.max(roomsByAdults, roomsByTotalPax);
+
+    // --- 2. SURCHARGE DISTRIBUTION LOGIC ---
+    let totalFactor = roomsRequired * 1.0; // Har room ka base price (2 pax included)
+    let totalPax = adults + children;
+    let extraPax = totalPax - (roomsRequired * 2); // Wo log jo 'Free' limit se upar hain
+
+    if (extraPax > 0) {
+        // Pehle har room mein 3rd person (30%) distribute hoga
+        let thirdPersonCount = Math.min(extraPax, roomsRequired);
+        totalFactor += (thirdPersonCount * 0.3);
         
-        let roomFactor = 1.0; // Base Price for first 2 pax
+        extraPax -= thirdPersonCount;
 
-        if (paxInThisRoom === 3) {
-            roomFactor += 0.3; // 3rd person surcharge
-        } else if (paxInThisRoom === 4) {
-            roomFactor += 0.3 + 0.5; // 3rd (30%) + 4th (50%) = 80% surcharge
+        // Agar abhi bhi log bache hain, toh wo 4th person (50%) banenge
+        if (extraPax > 0) {
+            totalFactor += (extraPax * 0.5);
         }
-
-        totalFactor += roomFactor;
-        remainingPax -= paxInThisRoom;
     }
 
     return { 
