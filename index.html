@@ -714,36 +714,47 @@ function runOptimizer(reoptimizeHotels = false, reoptimizeSights = false, skipRo
     const rooms = config.roomsRequired;
     const vehicleCount = Math.ceil(paxCount / 4);
 
+    // --- DYNAMIC LABELS UPDATE ---
+    if(document.getElementById('hotelBudgetLabel')) 
+        document.getElementById('hotelBudgetLabel').innerText = `Hotel Budget (${paxCount} Pax)`;
+    if(document.getElementById('sightBudgetLabel')) 
+        document.getElementById('sightBudgetLabel').innerText = `Sight Budget (${paxCount} Pax)`;
+
     const hBudgetTotal = Number(document.getElementById('hotelBudget').value) || 0;
     const sBudgetTotal = Number(document.getElementById('sightBudget').value) || 0;
     const tBudgetTotal = Number(document.getElementById('transferBudget')?.value) || 0;
 
+    // 1. Calculate already spent budget (Manual entries)
     let spentH = 0; let sysHCount = 0; let spentS = 0;
     currentPlan.forEach(p => {
-        if (p.hotel && p.isHotelManual) spentH += (Number(p.hotel.cost) * p.nights * rooms);
+        if (p.hotel && p.isHotelManual) spentH += (Number(p.hotel.cost) * p.nights * config.pricingFactor);
         else sysHCount++;
         if (p.sights) p.sights.forEach(s => { if (s.isManual) spentS += (Number(s.price) * paxCount); });
     });
 
+    // Per City Hotel Budget Cap
     const hCap = sysHCount > 0 ? Math.max(0, hBudgetTotal - spentH) / sysHCount : 0;
+    
+    // Total Days for Sightseeing allocation
     const totalDays = selectedRoute.reduce((sum, r) => sum + (Number(r.nights) + 1), 0);
-    // Group Allowance: Pure din ke liye kitna budget hai
     const dailyGroupAllowance = totalDays > 0 ? (Math.max(0, sBudgetTotal - spentS) / totalDays) : 0;
 
     currentPlan = selectedRoute.map((sourceRoute) => {
         const cityName = sourceRoute.city.toLowerCase();
         const existingRoute = currentPlan.find(p => p.id === sourceRoute.id) || { ...sourceRoute, hotel: null, sights: [], isHotelManual: false };
 
+        // --- HOTEL OPTIMIZATION (Strict Budget) ---
         let finalHotel = existingRoute.hotel;
         if (!existingRoute.isHotelManual && (reoptimizeHotels || !finalHotel)) {
             const cityHotels = masterData.hotels.filter(h => h.city.toLowerCase() === cityName);
             if (cityHotels.length > 0) {
+                // Sort by cost descending to get the best possible hotel within budget
                 cityHotels.sort((a, b) => b.cost - a.cost); 
-                finalHotel = cityHotels.find(h => (Number(h.cost) * sourceRoute.nights * rooms) <= hCap) || cityHotels[cityHotels.length - 1];
+                finalHotel = cityHotels.find(h => (Number(h.cost) * sourceRoute.nights * config.pricingFactor) <= hCap) || cityHotels[cityHotels.length - 1];
             }
         }
 
-        // --- WAPAS AAPKA PURANA SIGHTSEEING LOGIC ---
+        // --- SIGHTSEEING OPTIMIZATION (Strict Budget) ---
         let finalSights = [...(existingRoute.sights || [])];
         if (reoptimizeSights || finalSights.length === 0) {
             finalSights = finalSights.filter(s => s.isManual);
@@ -754,12 +765,12 @@ function runOptimizer(reoptimizeHotels = false, reoptimizeSights = false, skipRo
             let usedInCity = new Set(finalSights.map(s => s.info));
             const daysInThisCity = Number(sourceRoute.nights) + 1;
 
-            // Har din ke liye check karega
             for (let d = 0; d < daysInThisCity; d++) {
                 let daySpent = finalSights.filter(s => s.assignedDay === d).reduce((sum, s) => sum + (Number(s.price) * paxCount), 0);
-                // Loop through all city sights to add MULTIPLE per day
+                
                 for (let s of citySights) {
                     const sGroupPrice = Number(s.price) * paxCount;
+                    // Check if adding this sight stays within daily allowance
                     if (!usedInCity.has(s.info) && (daySpent + sGroupPrice) <= dailyGroupAllowance) {
                         finalSights.push({ 
                             ...s, 
@@ -839,8 +850,12 @@ function runOptimizer(reoptimizeHotels = false, reoptimizeSights = false, skipRo
 function optimizeAllTransport(totalBudget, paxCount, vehicleCount) {
     let newTransfers = [];
     let newIntercity = [];
-    const icLegsCount = currentPlan.length - 1;
-    const totalLegs = icLegsCount + (2 + icLegsCount); 
+    
+    // 1. Total legs calculate karein budget distribute karne ke liye
+    const icLegsCount = currentPlan.length - 1; 
+    const transferLegsCount = 2 + icLegsCount; // Arrival + Departure + Station Links
+    const totalLegs = icLegsCount + transferLegsCount; 
+    
     const budgetPerLeg = totalBudget / (totalLegs || 1);
 
     const getBestFit = (data, city, from, to, isIC = false) => {
@@ -852,9 +867,14 @@ function optimizeAllTransport(totalBudget, paxCount, vehicleCount) {
                    dbFrom.includes(from.toLowerCase()) && dbTo.includes(to.toLowerCase());
         });
         if (matches.length === 0) return null;
-        matches.sort((a, b) => Number(a.price || a.avgPrice) - Number(b.price || b.avgPrice));
-        // isIC (Intercity) ke liye paxCount se multiply karke budget check hoga
-        return matches.find(m => (Number(m.price || m.avgPrice) * (isIC ? paxCount : vehicleCount)) <= budgetPerLeg) || matches[0];
+
+        // Best Fit Logic: Budget ke andar sabse mehenga option uthao (Best Quality)
+        matches.sort((a, b) => Number(b.price || b.avgPrice) - Number(a.price || a.avgPrice));
+        
+        return matches.find(m => {
+            const totalPrice = isIC ? (Number(m.price) * paxCount) : (Number(m.avgPrice || m.price) * vehicleCount);
+            return totalPrice <= budgetPerLeg;
+        }) || matches[matches.length - 1]; // Agar budget mein kuch nahi, toh cheapest pick karein
     };
 
     // 1. Arrival
@@ -867,21 +887,17 @@ function optimizeAllTransport(totalBudget, paxCount, vehicleCount) {
         const fromC = currentPlan[i].city;
         const toC = currentPlan[i+1].city;
 
-        // --- SECTION 04: INTERCITY (Train/Bus/Ferry) ---
         let ic = getBestFit(masterData.intercity, fromC, fromC, toC, true);
-        
         newIntercity.push({
             legId: `ic-${fromC}-${toC}`,
             date: currentPlan[i].cout,
             mode: ic ? ic.mode : "Ferry/Train",
             fromTo: ic ? `${ic.from} to ${ic.to}` : `${fromC} to ${toC}`,
             notes: ic ? (ic.details || ic.notes || "Scheduled") : "Scheduled Connection",
-            // UPDATE: Price = DB Price * Total Pax
             price: ic ? (Number(ic.price) * paxCount) : 0, 
             isManual: false
         });
 
-        // Section 03: Car to Station/Pier (Uses Vehicle Multiplier logic inside render)
         let toStation = getBestFit(masterData.transfers, fromC, "Hotel", "Station");
         newTransfers.push(formatLeg(toStation, `to-stat-${i}`, currentPlan[i].cout, "Hotel", "Station/Pier", fromC));
     }
